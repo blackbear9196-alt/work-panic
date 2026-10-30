@@ -1,314 +1,236 @@
 const express = require("express");
-const multer = require("multer");
-const OpenAI = require("openai");
+const path = require("path");
 
 const app = express();
-const upload = multer({ storage: multer.memoryStorage() });
-
 app.use(express.json({ limit: "10mb" }));
-app.use(express.urlencoded({ extended: true }));
-app.use(express.static("public"));
+app.use(express.static(path.join(__dirname, "public")));
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY
-});
-
+const PORT = process.env.PORT || 3000;
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-6-luna";
 const SUPABASE_URL = "https://ooaikveptwczdursnpvx.supabase.co";
+const SUPABASE_PUBLISHABLE_KEY = process.env.SUPABASE_PUBLISHABLE_KEY;
+const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY;
+const STRIPE_PRO_PRICE_ID = process.env.STRIPE_PRO_PRICE_ID || "price_1UWLY3Q71ELmzPZuIl6Y4i2p";
+const APP_URL = process.env.APP_URL || "https://work-panic.onrender.com";
 
-app.get("/api/config", (req, res) => {
-  res.json({
-    supabaseUrl: SUPABASE_URL,
-    supabasePublishableKey: process.env.SUPABASE_PUBLISHABLE_KEY || ""
-  });
-});
-
-function getBearerToken(req) {
-  const header = req.headers.authorization || "";
-  if (!header.startsWith("Bearer ")) return "";
-  return header.slice(7);
-}
-
-async function supabaseFetch(path, options = {}, accessToken = "") {
+async function supabaseRequest(pathname, options = {}) {
   const headers = {
-    apikey: process.env.SUPABASE_PUBLISHABLE_KEY || "",
-    Authorization: `Bearer ${accessToken}`,
+    apikey: SUPABASE_PUBLISHABLE_KEY,
     "Content-Type": "application/json",
     ...(options.headers || {})
   };
-
-  return fetch(`${SUPABASE_URL}${path}`, {
-    ...options,
-    headers
-  });
+  return fetch(`${SUPABASE_URL}${pathname}`, { ...options, headers });
 }
 
-async function getUserFromToken(accessToken) {
-  if (!accessToken) return null;
-
-  const r = await supabaseFetch("/auth/v1/user", { method: "GET" }, accessToken);
+async function getUserFromToken(token) {
+  const r = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+    headers: { apikey: SUPABASE_PUBLISHABLE_KEY, Authorization: `Bearer ${token}` }
+  });
   if (!r.ok) return null;
-
   return await r.json();
 }
 
-function currentMonthStart() {
-  const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone: "America/Los_Angeles",
-    year: "numeric",
-    month: "2-digit"
-  }).formatToParts(new Date());
-
-  const year = parts.find(p => p.type === "year").value;
-  const month = parts.find(p => p.type === "month").value;
-  return `${year}-${month}-01`;
+async function requireUser(req, res) {
+  const auth = req.headers.authorization || "";
+  if (!auth.startsWith("Bearer ")) {
+    res.status(401).json({ error: "Not authenticated" });
+    return null;
+  }
+  const user = await getUserFromToken(auth.slice(7));
+  if (!user?.id) {
+    res.status(401).json({ error: "Invalid session" });
+    return null;
+  }
+  return { user, token: auth.slice(7) };
 }
 
-async function getUsage(userId, accessToken) {
-  const monthStart = currentMonthStart();
-  const query = `/rest/v1/usage_monthly?user_id=eq.${encodeURIComponent(userId)}&month_start=eq.${encodeURIComponent(monthStart)}&select=id,user_id,month_start,analysis_count`;
-  const r = await supabaseFetch(query, { method: "GET" }, accessToken);
+function monthStart() {
+  const d = new Date();
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1)).toISOString().slice(0, 10);
+}
 
-  if (!r.ok) {
-    const body = await r.text();
-    throw new Error(`Could not read usage: ${body}`);
-  }
+async function getUsage(userId, token) {
+  const qs = `/rest/v1/usage_monthly?select=*&user_id=eq.${encodeURIComponent(userId)}&month_start=eq.${monthStart()}&limit=1`;
+  const r = await supabaseRequest(qs, { headers: { Authorization: `Bearer ${token}` } });
+  const text = await r.text();
+  if (!r.ok) throw new Error(`Could not read usage: ${text}`);
+  const rows = text ? JSON.parse(text) : [];
+  return rows[0] || null;
+}
 
-  const rows = await r.json();
-  return {
-    monthStart,
-    count: rows[0]?.analysis_count || 0,
-    row: rows[0] || null
+async function saveUsage(userId, token, count) {
+  const payload = {
+    user_id: userId,
+    month_start: monthStart(),
+    analysis_count: count,
+    updated_at: new Date().toISOString()
   };
-}
-
-async function consumeFreeAnalysis(userId, accessToken) {
-  const usage = await getUsage(userId, accessToken);
-
-  if (usage.count >= 10) {
-    return { allowed: false, count: usage.count, monthStart: usage.monthStart };
-  }
-
-  if (!usage.row) {
-    const insert = await supabaseFetch(
-      "/rest/v1/usage_monthly",
-      {
-        method: "POST",
-        headers: { Prefer: "return=representation" },
-        body: JSON.stringify({
-          user_id: userId,
-          month_start: usage.monthStart,
-          analysis_count: 1
-        })
-      },
-      accessToken
-    );
-
-    if (!insert.ok) {
-      // Another request may have created the monthly row first.
-      const retry = await getUsage(userId, accessToken);
-      if (retry.count >= 10) {
-        return { allowed: false, count: retry.count, monthStart: retry.monthStart };
-      }
-
-      const update = await supabaseFetch(
-        `/rest/v1/usage_monthly?id=eq.${encodeURIComponent(retry.row.id)}`,
-        {
-          method: "PATCH",
-          headers: { Prefer: "return=representation" },
-          body: JSON.stringify({ analysis_count: retry.count + 1 })
-        },
-        accessToken
-      );
-
-      if (!update.ok) {
-        const body = await update.text();
-        throw new Error(`Could not update usage: ${body}`);
-      }
-
-      return { allowed: true, count: retry.count + 1, monthStart: retry.monthStart };
-    }
-
-    return { allowed: true, count: 1, monthStart: usage.monthStart };
-  }
-
-  const newCount = usage.count + 1;
-  const update = await supabaseFetch(
-    `/rest/v1/usage_monthly?id=eq.${encodeURIComponent(usage.row.id)}`,
-    {
-      method: "PATCH",
-      headers: { Prefer: "return=representation" },
-      body: JSON.stringify({ analysis_count: newCount })
+  const r = await supabaseRequest("/rest/v1/usage_monthly", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      Prefer: "resolution=merge-duplicates,return=representation"
     },
-    accessToken
-  );
-
-  if (!update.ok) {
-    const body = await update.text();
-    throw new Error(`Could not update usage: ${body}`);
-  }
-
-  return { allowed: true, count: newCount, monthStart: usage.monthStart };
+    body: JSON.stringify(payload)
+  });
+  const text = await r.text();
+  if (!r.ok) throw new Error(`Could not save usage: ${text}`);
+  return text ? JSON.parse(text) : [];
 }
 
-async function saveHistory(userId, accessToken, inputType, inputText, result) {
-  const r = await supabaseFetch(
-    "/rest/v1/analysis_history",
-    {
-      method: "POST",
-      headers: { Prefer: "return=minimal" },
-      body: JSON.stringify({
-        user_id: userId,
-        input_type: inputType,
-        input_text: inputText || null,
-        result
-      })
-    },
-    accessToken
-  );
-
-  if (!r.ok) {
-    const body = await r.text();
-    throw new Error(`Could not save history: ${body}`);
-  }
-}
+app.get("/api/config", (req, res) => {
+  res.json({ supabaseUrl: SUPABASE_URL, supabasePublishableKey: SUPABASE_PUBLISHABLE_KEY });
+});
 
 app.get("/api/usage", async (req, res) => {
   try {
-    const accessToken = getBearerToken(req);
-    const user = await getUserFromToken(accessToken);
-
-    if (!user) {
-      return res.status(401).json({ error: "Please log in again." });
-    }
-
-    const usage = await getUsage(user.id, accessToken);
-    res.json({ count: usage.count, limit: 10, monthStart: usage.monthStart });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: err?.message || "Could not load usage." });
+    const auth = await requireUser(req, res);
+    if (!auth) return;
+    const row = await getUsage(auth.user.id, auth.token);
+    res.json({ count: row?.analysis_count || 0, limit: 10 });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
   }
 });
 
 app.get("/api/history", async (req, res) => {
   try {
-    const accessToken = getBearerToken(req);
-    const user = await getUserFromToken(accessToken);
-
-    if (!user) {
-      return res.status(401).json({ error: "Please log in again." });
-    }
-
-    const query = `/rest/v1/analysis_history?user_id=eq.${encodeURIComponent(user.id)}&select=id,input_type,input_text,result,created_at&order=created_at.desc&limit=25`;
-    const r = await supabaseFetch(query, { method: "GET" }, accessToken);
-
-    if (!r.ok) {
-      const body = await r.text();
-      throw new Error(`Could not load history: ${body}`);
-    }
-
-    res.json({ history: await r.json() });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: err?.message || "Could not load history." });
+    const auth = await requireUser(req, res);
+    if (!auth) return;
+    const r = await supabaseRequest(
+      `/rest/v1/analysis_history?select=*&user_id=eq.${encodeURIComponent(auth.user.id)}&order=created_at.desc&limit=50`,
+      { headers: { Authorization: `Bearer ${auth.token}` } }
+    );
+    const text = await r.text();
+    if (!r.ok) throw new Error(text);
+    res.json({ items: text ? JSON.parse(text) : [] });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
   }
 });
 
-app.post("/api/analyze", upload.single("screenshot"), async (req, res) => {
+app.post("/api/create-checkout-session", async (req, res) => {
   try {
-    const text = (req.body.text || "").trim();
-    const file = req.file;
-    const accessToken = getBearerToken(req);
-    const user = await getUserFromToken(accessToken);
+    const auth = await requireUser(req, res);
+    if (!auth) return;
 
-    if (!user) {
-      return res.status(401).json({ error: "Please log in again." });
+    if (!STRIPE_SECRET_KEY) {
+      return res.status(500).json({ error: "Stripe is not configured on the server yet." });
     }
 
-    if (!text && !file) {
-      return res.status(400).json({ error: "Please paste a message or upload a screenshot." });
-    }
+    const params = new URLSearchParams();
+    params.set("mode", "subscription");
+    params.set("line_items[0][price]", STRIPE_PRO_PRICE_ID);
+    params.set("line_items[0][quantity]", "1");
+    params.set("success_url", `${APP_URL}/?checkout=success`);
+    params.set("cancel_url", `${APP_URL}/?checkout=cancelled`);
+    params.set("client_reference_id", auth.user.id);
+    params.set("customer_email", auth.user.email || "");
+    params.set("metadata[user_id]", auth.user.id);
 
-    const usage = await consumeFreeAnalysis(user.id, accessToken);
+    const r = await fetch("https://api.stripe.com/v1/checkout/sessions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${STRIPE_SECRET_KEY}`,
+        "Content-Type": "application/x-www-form-urlencoded"
+      },
+      body: params.toString()
+    });
 
-    if (!usage.allowed) {
+    const data = await r.json();
+    if (!r.ok) return res.status(500).json({ error: data?.error?.message || "Stripe checkout failed" });
+
+    res.json({ url: data.url });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post("/api/analyze", async (req, res) => {
+  try {
+    const auth = await requireUser(req, res);
+    if (!auth) return;
+
+    const usage = await getUsage(auth.user.id, auth.token);
+    const count = usage?.analysis_count || 0;
+    if (count >= 10) {
       return res.status(429).json({
-        error: "You have used all 10 FREE analyses for this month.",
-        code: "FREE_LIMIT_REACHED",
-        used: usage.count,
-        limit: 10
+        error: "FREE_LIMIT_REACHED",
+        message: "You have used all 10 free analyses this month. Upgrade to PRO for unlimited analysis."
       });
     }
 
-    const schema = {
-      type: "object",
-      properties: {
-        whatTheyWant: { type: "string" },
-        tasks: { type: "array", items: { type: "string" } },
-        deadline: { type: "string" },
-        priority: { type: "string", enum: ["Low", "Medium", "High", "Urgent"] },
-        professionalReply: { type: "string" }
-      },
-      required: ["whatTheyWant", "tasks", "deadline", "priority", "professionalReply"],
-      additionalProperties: false
-    };
+    const { inputText, imageData, inputType = "text" } = req.body || {};
+    if (!inputText && !imageData) return res.status(400).json({ error: "No input provided" });
+    if (!OPENAI_API_KEY) return res.status(500).json({ error: "OPENAI_API_KEY is not configured." });
 
-    const systemText = `You are WORK PANIC, an assistant that turns workplace messages into clear action.
-Analyze only the user's provided workplace message or screenshot.
-Identify what the sender wants, concrete tasks, deadline, priority, and a professional reply.
-Do not invent facts. If a deadline is not stated, say "Not specified".
-Return the result as JSON.`;
+    const system = `You are WORK PANIC, an assistant for employees. Analyze the user's work message or screenshot.
+Return ONLY valid JSON with this exact shape:
+{
+  "what_they_want": "short clear explanation",
+  "tasks": ["task 1", "task 2"],
+  "deadline": "deadline or Not specified",
+  "priority": "Low|Medium|High|Urgent",
+  "professional_reply": "professional reply",
+  "shorter_reply": "short concise reply",
+  "confident_reply": "short confident reply"
+}
+Be accurate. Do not invent facts. If no deadline is stated, say "Not specified".`;
 
-    let content;
-    let inputType = "text";
-
-    if (file) {
-      inputType = "screenshot";
-      const mime = file.mimetype || "image/png";
-      const b64 = file.buffer.toString("base64");
-      content = [
-        { type: "input_text", text: "Analyze the workplace message shown in this screenshot only. Return the result as JSON." },
-        { type: "input_image", image_url: `data:${mime};base64,${b64}` }
-      ];
-    } else {
-      content = [
-        { type: "input_text", text: `${text}\n\nReturn the result as JSON.` }
-      ];
+    const content = [];
+    if (inputText) content.push({ type: "text", text: inputText });
+    if (imageData) {
+      content.push({ type: "image_url", image_url: { url: imageData } });
     }
 
-    const response = await openai.responses.create({
-      model: process.env.OPENAI_MODEL || "gpt-6-luna",
-      input: [
-        { role: "system", content: [{ type: "input_text", text: systemText }] },
-        { role: "user", content }
-      ],
-      text: {
-        format: {
-          type: "json_schema",
-          name: "work_panic_analysis",
-          strict: true,
-          schema
-        }
-      }
+    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${OPENAI_API_KEY}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        model: OPENAI_MODEL,
+        response_format: { type: "json_object" },
+        messages: [
+          { role: "system", content: system },
+          { role: "user", content }
+        ]
+      })
     });
 
-    const result = JSON.parse(response.output_text);
+    const data = await response.json();
+    if (!response.ok) return res.status(500).json({ error: data?.error?.message || "AI analysis failed" });
 
-    await saveHistory(user.id, accessToken, inputType, text, result);
+    const raw = data?.choices?.[0]?.message?.content || "{}";
+    const result = JSON.parse(raw);
 
-    res.json({
-      ...result,
-      usage: {
-        used: usage.count,
-        limit: 10
-      }
+    const newCount = count + 1;
+    await saveUsage(auth.user.id, auth.token, newCount);
+
+    const historyPayload = {
+      user_id: auth.user.id,
+      input_type: inputType,
+      input_text: inputText || null,
+      result
+    };
+
+    const historyR = await supabaseRequest("/rest/v1/analysis_history", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${auth.token}`,
+        Prefer: "return=minimal"
+      },
+      body: JSON.stringify(historyPayload)
     });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({
-      error: err?.message || "Analysis failed."
-    });
+    const historyText = await historyR.text();
+    if (!historyR.ok) throw new Error(`Could not save history: ${historyText}`);
+
+    res.json({ result, usage: { count: newCount, limit: 10 } });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
   }
 });
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`WORK PANIC running on port ${PORT}`));
+app.listen(PORT, () => console.log(`WORK PANIC listening on ${PORT}`));
