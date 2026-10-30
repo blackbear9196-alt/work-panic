@@ -45,7 +45,7 @@ app.post("/api/analyze",upload.single("screenshot"),async(req,res)=>{
   const response=await c.responses.create({
    model:process.env.OPENAI_MODEL||"gpt-6-luna",
    instructions:SYSTEM,
-   input:[{role:"user",content:input}],
+   input:[{role:"user",content:[...input,{type:"input_text",text:"Return the result as JSON."}]}],
    text:{format:{type:"json_object"}}
   });
   const out=response.output_text;
