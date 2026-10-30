@@ -26,6 +26,17 @@ button{border:0;border-radius:11px;padding:12px 17px;cursor:pointer;font-weight:
 .notice{padding:12px;border-radius:10px;background:#ecfdf5;color:#065f46}
 .error{padding:12px;border-radius:10px;background:#fef2f2;color:#991b1b}
 @media(max-width:760px){.pricing,.featureGrid{grid-template-columns:1fr}.hero{padding-top:28px}.hero h1{font-size:36px}.hero p{font-size:15px}.wrap{padding:18px 14px 40px}.authCard{margin-top:20px}}
+
+.footer{margin-top:28px;padding:22px 8px 10px;text-align:center;color:#64748b;font-size:13px}
+.footerLinks{display:flex;justify-content:center;gap:18px;flex-wrap:wrap;margin-bottom:8px}
+.footerLinks button{background:transparent;color:#3730a3;padding:4px 2px;font-weight:700;box-shadow:none}
+.legalCard{max-width:900px;margin:18px auto 0}
+.legalCard h2{margin-top:0}
+.legalCard h3{margin:22px 0 7px}
+.legalCard p,.legalCard li{color:#475569;line-height:1.65}
+.legalCard ul{padding-left:20px}
+.legalClose{float:right;background:#eef2ff;color:#3730a3}
+
 </style>
 </head>
 <body>
@@ -104,6 +115,80 @@ button{border:0;border-radius:11px;padding:12px 17px;cursor:pointer;font-weight:
 
   <div id="historyCard" class="card hidden"></div>
 </div>
+
+<div id="legalArea">
+  <div id="privacyCard" class="card legalCard hidden">
+    <button class="legalClose" onclick="closeLegal()">Close</button>
+    <h2>Privacy Policy</h2>
+    <p><strong>Last updated: October 30, 2026</strong></p>
+    <p>WORK PANIC provides an AI-powered service that helps users understand work messages, identify tasks and deadlines, prioritize requests, and draft professional replies.</p>
+    <h3>Information we collect</h3>
+    <ul>
+      <li>Account information such as your email address and authentication information.</li>
+      <li>Work messages, text, screenshots, and other content you submit for analysis.</li>
+      <li>Analysis history and usage information needed to provide the service and enforce plan limits.</li>
+      <li>Subscription and payment information processed by Stripe. WORK PANIC does not need to receive or store your full card number.</li>
+    </ul>
+    <h3>How we use information</h3>
+    <p>We use submitted content to provide AI analysis, task extraction, deadline and priority identification, reply generation, history, account access, usage limits, billing, security, and service improvement.</p>
+    <h3>Service providers</h3>
+    <p>WORK PANIC uses third-party service providers to operate the service, including Supabase for authentication and database services, OpenAI for AI processing, Stripe for payments and subscriptions, and Render for hosting.</p>
+    <h3>Data choices</h3>
+    <p>Do not submit confidential, regulated, or highly sensitive information unless you are authorized to do so. You may request assistance with account or data questions through the contact method associated with your WORK PANIC account.</p>
+    <h3>Changes</h3>
+    <p>We may update this policy as the service changes. The updated version will be posted on this page with a revised date.</p>
+  </div>
+
+  <div id="termsCard" class="card legalCard hidden">
+    <button class="legalClose" onclick="closeLegal()">Close</button>
+    <h2>Terms of Service</h2>
+    <p><strong>Last updated: October 30, 2026</strong></p>
+    <p>By creating an account or using WORK PANIC, you agree to these Terms.</p>
+    <h3>The service</h3>
+    <p>WORK PANIC provides AI-assisted interpretation of work messages and generation of task summaries and draft replies. AI output is provided for assistance and may contain errors. You are responsible for reviewing output before relying on it or sending it to another person.</p>
+    <h3>Accounts</h3>
+    <p>You are responsible for maintaining the security of your account and for activity performed through your account.</p>
+    <h3>Acceptable use</h3>
+    <p>You may not use WORK PANIC for unlawful activity, abuse, unauthorized access, or to submit information you do not have the right to process.</p>
+    <h3>Subscriptions</h3>
+    <p>PRO is a monthly subscription priced at US$9.99 unless the applicable checkout page states otherwise. A subscription continues until cancelled. You authorize recurring charges through Stripe for the applicable subscription.</p>
+    <h3>Availability</h3>
+    <p>We may modify, suspend, or discontinue features as needed to operate and improve the service.</p>
+    <h3>AI output</h3>
+    <p>WORK PANIC does not guarantee that AI-generated analysis, deadlines, priorities, or replies are complete or error-free. Review important outputs before acting on them.</p>
+  </div>
+
+  <div id="refundCard" class="card legalCard hidden">
+    <button class="legalClose" onclick="closeLegal()">Close</button>
+    <h2>Refund &amp; Cancellation Policy</h2>
+    <p><strong>Last updated: October 30, 2026</strong></p>
+    <h3>Cancellation</h3>
+    <p>You may request cancellation of your PRO subscription before the next billing date. Cancellation stops future recurring charges; access may continue through the period already paid for, subject to the applicable subscription terms.</p>
+    <h3>Refunds</h3>
+    <p>Subscription payments are generally non-refundable once charged, except where a refund is required by applicable law or approved by WORK PANIC in an individual case.</p>
+    <h3>Billing problems</h3>
+    <p>If you believe you were charged in error or have a billing problem, contact WORK PANIC using the email address associated with your account and include the billing email and relevant charge date. Do not send your full card number.</p>
+  </div>
+
+  <div id="contactCard" class="card legalCard hidden">
+    <button class="legalClose" onclick="closeLegal()">Close</button>
+    <h2>Contact &amp; Support</h2>
+    <p><strong>WORK PANIC Support</strong></p>
+    <p>For account access, billing, subscription cancellation, refunds, or service questions, contact WORK PANIC using the email address associated with your WORK PANIC account.</p>
+    <p>When contacting support about billing, include the account email and the date or amount of the charge. Do not send your full payment card number or password.</p>
+  </div>
+</div>
+
+<footer class="footer">
+  <div class="footerLinks">
+    <button onclick="openLegal('privacyCard')">Privacy Policy</button>
+    <button onclick="openLegal('termsCard')">Terms of Service</button>
+    <button onclick="openLegal('refundCard')">Refund &amp; Cancellation</button>
+    <button onclick="openLegal('contactCard')">Contact / Support</button>
+  </div>
+  <div>© 2026 WORK PANIC. All rights reserved.</div>
+</footer>
+
 </div>
 
 <script>
@@ -475,6 +560,16 @@ async function checkout(){
     upgradeTop.disabled = false;
     upgradeBtn.disabled = false;
   }
+}
+
+
+function openLegal(id){
+  ["privacyCard","termsCard","refundCard","contactCard"].forEach(x => $(x).classList.add("hidden"));
+  $(id).classList.remove("hidden");
+  $("legalArea").scrollIntoView({behavior:"smooth",block:"start"});
+}
+function closeLegal(){
+  ["privacyCard","termsCard","refundCard","contactCard"].forEach(x => $(x).classList.add("hidden"));
 }
 
 init();
