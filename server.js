@@ -11,7 +11,7 @@ const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-6-luna";
 const SUPABASE_URL = "https://ooaikveptwczdursnpvx.supabase.co";
 const SUPABASE_PUBLISHABLE_KEY = process.env.SUPABASE_PUBLISHABLE_KEY;
 const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY;
-const STRIPE_PRO_PRICE_ID = process.env.STRIPE_PRO_PRICE_ID || "price_1UWLY3Q71ELmzPZuIl6Y4i2p";
+const STRIPE_PRO_PRICE_ID = process.env.STRIPE_PRO_PRICE_ID || "price_1UWN2MLM8d8XDMktMZ63ckka";
 const APP_URL = process.env.APP_URL || "https://work-panic.onrender.com";
 
 async function supabaseRequest(pathname, options = {}) {
@@ -143,7 +143,7 @@ async function stripeRequest(pathname, options = {}) {
 }
 
 async function getStoredSubscription(userId, token) {
-  const qs = `/rest/v1/subscriptions?select=id,stripe_customer_id,stripe_subscription_id,status,plan,current_period_end&user_id=eq.${encodeURIComponent(userId)}&limit=1`;
+  const qs = `/rest/v1/subscriptions?select=id,stripe_customer_id,stripe_subscription_id,status,plan,current_period_end,updated_at&user_id=eq.${encodeURIComponent(userId)}&order=updated_at.desc&limit=1`;
   const r = await supabaseRequest(qs, { headers: { Authorization: `Bearer ${token}` } });
   const text = await r.text();
   if (!r.ok) throw new Error(`Could not read subscription: ${text}`);
@@ -276,7 +276,13 @@ app.post("/api/sync-subscription", async (req, res) => {
     if (!sub?.id) return res.status(400).json({ error: "No subscription was created." });
 
     const existing = await getStoredSubscription(auth.user.id, auth.token);
-    if (!existing) {
+    const existingSameSubscription = existing?.stripe_subscription_id === sub.id;
+
+    // A previous Sandbox/test subscription may already exist for this user.
+    // Do not let that stale row block the new LIVE subscription. If the LIVE
+    // subscription is different, save it as the newest row; getStoredSubscription
+    // prefers the newest updated_at row.
+    if (!existingSameSubscription) {
       const payload = {
         user_id: auth.user.id,
         stripe_customer_id: typeof session.customer === "object" ? session.customer.id : session.customer,
@@ -301,6 +307,63 @@ app.post("/api/sync-subscription", async (req, res) => {
 
     const status = await getProStatus(auth.user.id, auth.token);
     res.json({ success: true, ...status });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post("/api/sync-latest-subscription", async (req, res) => {
+  try {
+    const auth = await requireUser(req, res);
+    if (!auth) return;
+
+    if (!STRIPE_SECRET_KEY) return res.status(500).json({ error: "Stripe is not configured." });
+
+    // Find the LIVE Stripe customer by the authenticated account email, then
+    // pick the newest active/trialing subscription for the PRO price.
+    const email = auth.user.email || "";
+    const customersR = await stripeRequest(`/v1/customers?email=${encodeURIComponent(email)}&limit=10`);
+    const customers = await customersR.json();
+    if (!customersR.ok) return res.status(400).json({ error: customers?.error?.message || "Could not find Stripe customer." });
+
+    let best = null;
+    for (const customer of (customers.data || [])) {
+      const subsR = await stripeRequest(`/v1/subscriptions?customer=${encodeURIComponent(customer.id)}&status=all&limit=20`);
+      const subs = await subsR.json();
+      if (!subsR.ok) continue;
+      for (const sub of (subs.data || [])) {
+        const itemMatches = (sub.items?.data || []).some(item => item.price?.id === STRIPE_PRO_PRICE_ID);
+        if (!itemMatches) continue;
+        if (!best || (sub.created || 0) > (best.created || 0)) {
+          best = { sub, customer };
+        }
+      }
+    }
+
+    if (!best) return res.json({ success: true, pro: false, found: false });
+
+    const existing = await getStoredSubscription(auth.user.id, auth.token);
+    if (existing?.stripe_subscription_id !== best.sub.id) {
+      const payload = {
+        user_id: auth.user.id,
+        stripe_customer_id: best.customer.id,
+        stripe_subscription_id: best.sub.id,
+        status: best.sub.status || "active",
+        plan: "pro",
+        current_period_end: best.sub.current_period_end ? new Date(best.sub.current_period_end * 1000).toISOString() : null,
+        updated_at: new Date().toISOString()
+      };
+      const insertR = await supabaseRequest("/rest/v1/subscriptions", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${auth.token}`, Prefer: "return=minimal" },
+        body: JSON.stringify(payload)
+      });
+      const insertText = await insertR.text();
+      if (!insertR.ok) throw new Error(`Could not save LIVE subscription: ${insertText}`);
+    }
+
+    const status = await getProStatus(auth.user.id, auth.token);
+    res.json({ success: true, found: true, ...status });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
