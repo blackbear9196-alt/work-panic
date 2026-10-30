@@ -1,0 +1,376 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>WORK PANIC</title>
+<style>
+body{font-family:Arial,sans-serif;margin:0;background:#f5f7fb;color:#111827}
+.wrap{max-width:980px;margin:0 auto;padding:32px 20px}
+header{display:flex;justify-content:space-between;align-items:center;gap:16px}
+.logo{font-size:28px;font-weight:800}
+.card{background:white;border:1px solid #e5e7eb;border-radius:18px;padding:22px;margin-top:18px;box-shadow:0 6px 20px rgba(0,0,0,.05)}
+input,textarea{width:100%;box-sizing:border-box;padding:12px;border:1px solid #d1d5db;border-radius:10px;margin:6px 0 12px}
+button{border:0;border-radius:10px;padding:11px 16px;cursor:pointer;font-weight:700}
+.primary{background:#111827;color:white}.secondary{background:#eef2ff;color:#3730a3}.danger{background:#fee2e2}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.badge{padding:7px 10px;border-radius:999px;background:#eef2ff;font-weight:700}
+.hidden{display:none}
+.pricing{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+.plan{border:1px solid #e5e7eb;border-radius:16px;padding:18px;background:#fff}
+.plan.popular{border:2px solid #111827}
+.price{font-size:30px;font-weight:800;margin:8px 0}
+.small{color:#6b7280;font-size:13px}
+.result h3{margin-bottom:6px}
+.item{margin:8px 0}
+.notice{padding:12px;border-radius:10px;background:#ecfdf5;color:#065f46}
+.error{padding:12px;border-radius:10px;background:#fef2f2;color:#991b1b}
+@media(max-width:760px){.pricing{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <div class="logo">WORK PANIC</div>
+  <div class="row">
+    <span id="usage" class="badge">FREE: 0 / 10</span>
+    <button id="upgradeTop" class="secondary hidden">Upgrade to PRO</button>
+    <button id="historyBtn" class="secondary hidden">History</button>
+    <button id="logoutBtn" class="danger hidden">Logout</button>
+  </div>
+</header>
+
+<div id="authCard" class="card">
+  <h2>Sign in</h2>
+  <input id="email" type="email" placeholder="Email">
+  <input id="password" type="password" placeholder="Password">
+  <div class="row">
+    <button id="loginBtn" class="primary">Login</button>
+    <button id="signupBtn" class="secondary">Create account</button>
+  </div>
+  <p id="authMsg" class="small"></p>
+</div>
+
+<div id="appCard" class="hidden">
+  <div class="card">
+    <h2>I got the message. Now what?</h2>
+    <textarea id="inputText" rows="8" placeholder="Paste the work message here..."></textarea>
+    <input id="imageInput" type="file" accept="image/*">
+    <div class="row">
+      <button id="analyzeBtn" class="primary">Analyze</button>
+      <button id="pricingBtn" class="secondary">View Plans</button>
+    </div>
+    <p class="small">Paste a message or upload a screenshot.</p>
+    <div id="msg"></div>
+  </div>
+
+  <div id="result" class="card result hidden"></div>
+
+  <div id="pricingCard" class="card hidden">
+    <h2>Choose your plan</h2>
+    <div class="pricing">
+      <div class="plan">
+        <h3>FREE</h3><div class="price">$0</div><div class="small">per month</div>
+        <p>10 analyses/month</p><p>Text analysis</p><p>Screenshot analysis</p><p>History</p>
+        <button class="secondary">Current Plan</button>
+      </div>
+
+      <div class="plan popular">
+        <h3>PRO</h3><div class="price">$9.99</div><div class="small">per month</div>
+        <p>Unlimited analysis</p><p>Screenshot analysis</p><p>History</p><p>Professional replies</p><p>Shorter + Confident replies</p>
+        <button id="upgradeBtn" class="primary">Upgrade to PRO</button>
+      </div>
+
+      <div class="plan">
+        <h3>TEAM</h3><div class="price">$29.99</div><div class="small">per month</div>
+        <p>Multiple users</p><p>Shared history</p><p>Team workspace</p>
+        <button class="secondary" disabled>Coming soon</button>
+      </div>
+    </div>
+    <p class="small">Secure checkout powered by Stripe.</p>
+  </div>
+
+  <div id="historyCard" class="card hidden"></div>
+</div>
+</div>
+
+<script>
+let sbClient;
+let currentUser = null;
+
+const $ = id => document.getElementById(id);
+const usage = $("usage");
+const upgradeTop = $("upgradeTop");
+const historyBtn = $("historyBtn");
+const logoutBtn = $("logoutBtn");
+const authCard = $("authCard");
+const appCard = $("appCard");
+const email = $("email");
+const password = $("password");
+const loginBtn = $("loginBtn");
+const signupBtn = $("signupBtn");
+const authMsg = $("authMsg");
+const inputText = $("inputText");
+const imageInput = $("imageInput");
+const analyzeBtn = $("analyzeBtn");
+const pricingBtn = $("pricingBtn");
+const msg = $("msg");
+const result = $("result");
+const pricingCard = $("pricingCard");
+const upgradeBtn = $("upgradeBtn");
+const historyCard = $("historyCard");
+
+async function init(){
+  try{
+    const cfg = await fetch("/api/config").then(r => r.json());
+
+    const s = document.createElement("script");
+    s.src = "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2";
+    s.onload = () => {
+      sbClient = window.supabase.createClient(
+        cfg.supabaseUrl,
+        cfg.supabasePublishableKey
+      );
+      bind();
+    };
+    s.onerror = () => {
+      authMsg.textContent = "Unable to load login service. Please refresh the page.";
+    };
+    document.head.appendChild(s);
+  }catch(e){
+    authMsg.textContent = "Unable to connect to WORK PANIC. Please refresh the page.";
+  }
+}
+
+function bind(){
+  loginBtn.onclick = login;
+  signupBtn.onclick = signup;
+  logoutBtn.onclick = logout;
+  analyzeBtn.onclick = analyze;
+  historyBtn.onclick = loadHistory;
+  pricingBtn.onclick = () => pricingCard.classList.toggle("hidden");
+  upgradeTop.onclick = checkout;
+  upgradeBtn.onclick = checkout;
+
+  sbClient.auth.onAuthStateChange((_event, session) => setSession(session));
+  sbClient.auth.getSession().then(({data}) => setSession(data.session));
+}
+
+async function setSession(session){
+  currentUser = session?.user || null;
+
+  authCard.classList.toggle("hidden", !!currentUser);
+  appCard.classList.toggle("hidden", !currentUser);
+  logoutBtn.classList.toggle("hidden", !currentUser);
+  historyBtn.classList.toggle("hidden", !currentUser);
+  upgradeTop.classList.toggle("hidden", !currentUser);
+
+  if(currentUser) await refreshUsage();
+}
+
+async function login(){
+  authMsg.textContent = "";
+
+  const {error} = await sbClient.auth.signInWithPassword({
+    email: email.value.trim(),
+    password: password.value
+  });
+
+  if(error){
+    authMsg.textContent = error.message;
+  }
+}
+
+async function signup(){
+  authMsg.textContent = "";
+
+  const {error} = await sbClient.auth.signUp({
+    email: email.value.trim(),
+    password: password.value
+  });
+
+  if(error){
+    authMsg.textContent = error.message;
+  }else{
+    authMsg.textContent = "Check your email to confirm your account.";
+  }
+}
+
+async function logout(){
+  await sbClient.auth.signOut();
+}
+
+async function token(){
+  const {data} = await sbClient.auth.getSession();
+  return data.session?.access_token;
+}
+
+async function refreshUsage(){
+  const t = await token();
+  if(!t) return;
+
+  const r = await fetch("/api/usage", {
+    headers:{Authorization:"Bearer " + t}
+  });
+
+  const d = await r.json();
+  usage.textContent = `FREE: ${d.count || 0} / ${d.limit || 10}`;
+}
+
+async function analyze(){
+  msg.innerHTML = "";
+  result.classList.add("hidden");
+
+  const t = await token();
+  if(!t) return;
+
+  const file = imageInput.files[0];
+  let imageData = null;
+
+  if(file){
+    imageData = await new Promise((resolve,reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  }
+
+  if(!inputText.value.trim() && !imageData){
+    msg.innerHTML = '<div class="error">Paste a message or upload a screenshot.</div>';
+    return;
+  }
+
+  analyzeBtn.disabled = true;
+  analyzeBtn.textContent = "Analyzing...";
+
+  try{
+    const r = await fetch("/api/analyze", {
+      method:"POST",
+      headers:{
+        "Content-Type":"application/json",
+        Authorization:"Bearer " + t
+      },
+      body:JSON.stringify({
+        inputText:inputText.value.trim(),
+        imageData,
+        inputType:imageData ? "image" : "text"
+      })
+    });
+
+    const d = await r.json();
+
+    if(!r.ok){
+      msg.innerHTML = `<div class="error">${escapeHtml(d.message || d.error || "Analysis failed")}</div>`;
+      return;
+    }
+
+    renderResult(d.result);
+    usage.textContent = `FREE: ${d.usage.count} / ${d.usage.limit}`;
+    msg.innerHTML = '<div class="notice">Done. Saved to History.</div>';
+  }catch(e){
+    msg.innerHTML = `<div class="error">${escapeHtml(e.message)}</div>`;
+  }finally{
+    analyzeBtn.disabled = false;
+    analyzeBtn.textContent = "Analyze";
+  }
+}
+
+function renderResult(x){
+  result.innerHTML = `
+    <h2>Result</h2>
+    <h3>What they Want</h3>
+    <div class="item">${escapeHtml(x.what_they_want || "")}</div>
+
+    <h3>Tasks</h3>
+    <ul>${(x.tasks || []).map(t => `<li>${escapeHtml(t)}</li>`).join("")}</ul>
+
+    <h3>Deadline</h3>
+    <div class="item">${escapeHtml(x.deadline || "Not specified")}</div>
+
+    <h3>Priority</h3>
+    <div class="item"><strong>${escapeHtml(x.priority || "Medium")}</strong></div>
+
+    <h3>Professional reply</h3>
+    <div class="item">${escapeHtml(x.professional_reply || "")}</div>
+
+    <div class="row">
+      <button class="secondary" onclick="copyReply(${JSON.stringify(x.professional_reply || "")})">Copy Reply</button>
+      <button class="secondary" onclick="copyReply(${JSON.stringify(x.shorter_reply || "")})">Shorter</button>
+      <button class="secondary" onclick="copyReply(${JSON.stringify(x.confident_reply || "")})">More Confident</button>
+    </div>
+  `;
+
+  result.classList.remove("hidden");
+}
+
+async function copyReply(s){
+  await navigator.clipboard.writeText(s);
+  msg.innerHTML = '<div class="notice">Reply copied.</div>';
+}
+
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, m => ({
+    "&":"&amp;",
+    "<":"&lt;",
+    ">":"&gt;",
+    '"':"&quot;",
+    "'":"&#039;"
+  }[m]));
+}
+
+async function loadHistory(){
+  const t = await token();
+  if(!t) return;
+
+  const r = await fetch("/api/history", {
+    headers:{Authorization:"Bearer " + t}
+  });
+
+  const d = await r.json();
+
+  historyCard.innerHTML =
+    "<h2>History</h2>" +
+    ((d.items || []).map(i => `
+      <div class="card">
+        <div class="small">${new Date(i.created_at).toLocaleString()} · ${escapeHtml(i.input_type)}</div>
+        <strong>${escapeHtml(i.result?.what_they_want || "Analysis")}</strong>
+      </div>
+    `).join("") || "<p>No history yet.</p>");
+
+  historyCard.classList.remove("hidden");
+}
+
+async function checkout(){
+  const t = await token();
+  if(!t) return;
+
+  upgradeTop.disabled = true;
+  upgradeBtn.disabled = true;
+
+  try{
+    const r = await fetch("/api/create-checkout-session", {
+      method:"POST",
+      headers:{Authorization:"Bearer " + t}
+    });
+
+    const d = await r.json();
+
+    if(!r.ok){
+      msg.innerHTML = `<div class="error">${escapeHtml(d.error || "Stripe checkout is not configured yet.")}</div>`;
+      return;
+    }
+
+    location.href = d.url;
+  }catch(e){
+    msg.innerHTML = `<div class="error">${escapeHtml(e.message)}</div>`;
+  }finally{
+    upgradeTop.disabled = false;
+    upgradeBtn.disabled = false;
+  }
+}
+
+init();
+</script>
+</body>
+</html>
