@@ -8,11 +8,11 @@
 body{font-family:Inter,Arial,sans-serif;margin:0;background:linear-gradient(180deg,#f8fafc 0%,#eef2ff 100%);color:#111827;min-height:100vh}
 .wrap{max-width:1080px;margin:0 auto;padding:28px 20px 60px}
 header{display:flex;justify-content:space-between;align-items:center;gap:16px}
-.logo{font-size:30px;font-weight:900;letter-spacing:-1px}
+.logo{font-size:29px;font-weight:900;letter-spacing:-1px}.wrap>header{padding:4px 2px 0}
 .card{background:rgba(255,255,255,.96);border:1px solid #e5e7eb;border-radius:20px;padding:24px;margin-top:18px;box-shadow:0 12px 35px rgba(15,23,42,.08)}
 input,textarea{width:100%;box-sizing:border-box;padding:12px;border:1px solid #d1d5db;border-radius:10px;margin:6px 0 12px}
 button{border:0;border-radius:11px;padding:12px 17px;cursor:pointer;font-weight:750;transition:transform .15s,box-shadow .15s,opacity .15s}button:hover{transform:translateY(-1px);box-shadow:0 7px 18px rgba(15,23,42,.12)}
-.primary{background:#111827;color:white}.secondary{background:#eef2ff;color:#3730a3}.danger{background:#fee2e2}.hero{text-align:center;padding:26px 10px 8px}.hero h1{font-size:46px;line-height:1.02;letter-spacing:-2px;margin:0 0 12px}.hero p{max-width:650px;margin:0 auto;color:#64748b;font-size:17px;line-height:1.6}.eyebrow{display:inline-block;padding:7px 11px;border-radius:999px;background:#e0e7ff;color:#3730a3;font-weight:800;font-size:12px;letter-spacing:.5px;text-transform:uppercase;margin-bottom:14px}.featureGrid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:18px}.feature{background:white;border:1px solid #e5e7eb;border-radius:16px;padding:18px}.feature strong{display:block;margin-bottom:6px}.feature span{color:#64748b;font-size:14px;line-height:1.5}
+.primary{background:#111827;color:white}.secondary{background:#eef2ff;color:#3730a3}.danger{background:#fee2e2}.hero{text-align:center;padding:34px 10px 12px}.hero h1{font-size:46px;line-height:1.02;letter-spacing:-2px;margin:0 0 12px}.hero p{max-width:680px;margin:0 auto;color:#64748b;font-size:17px;line-height:1.65}.eyebrow{display:inline-block;padding:7px 11px;border-radius:999px;background:#e0e7ff;color:#3730a3;font-weight:800;font-size:12px;letter-spacing:.5px;text-transform:uppercase;margin-bottom:14px}.featureGrid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin:24px auto 0;max-width:960px}.feature{background:white;border:1px solid #e5e7eb;border-radius:16px;padding:18px}.feature strong{display:block;margin-bottom:6px}.authCard{max-width:720px;margin:28px auto 0}.authCard h2{font-size:24px;margin-top:0}.feature span{color:#64748b;font-size:14px;line-height:1.5}
 .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
 .badge{padding:7px 10px;border-radius:999px;background:#eef2ff;font-weight:700}
 .hidden{display:none}
@@ -25,11 +25,20 @@ button{border:0;border-radius:11px;padding:12px 17px;cursor:pointer;font-weight:
 .item{margin:8px 0}
 .notice{padding:12px;border-radius:10px;background:#ecfdf5;color:#065f46}
 .error{padding:12px;border-radius:10px;background:#fef2f2;color:#991b1b}
-@media(max-width:760px){.pricing,.featureGrid{grid-template-columns:1fr}.hero h1{font-size:36px}.wrap{padding-top:18px}}
+@media(max-width:760px){.pricing,.featureGrid{grid-template-columns:1fr}.hero{padding-top:28px}.hero h1{font-size:36px}.hero p{font-size:15px}.wrap{padding:18px 14px 40px}.authCard{margin-top:20px}}
 </style>
 </head>
 <body>
 <div class="wrap">
+<header>
+  <div class="logo">WORK PANIC</div>
+  <div class="row">
+    <span id="usage" class="badge hidden">FREE: 0 / 10</span>
+    <button id="upgradeTop" class="secondary hidden">Upgrade to PRO</button>
+    <button id="historyBtn" class="secondary hidden">History</button>
+    <button id="logoutBtn" class="danger hidden">Logout</button>
+  </div>
+</header>
 <div id="landingHero" class="hero">
   <div class="eyebrow">AI WORK MESSAGE ASSISTANT</div>
   <h1>I got the message.<br>Now what?</h1>
@@ -40,17 +49,9 @@ button{border:0;border-radius:11px;padding:12px 17px;cursor:pointer;font-weight:
     <div class="feature"><strong>Reply</strong><span>Get a professional response ready to send.</span></div>
   </div>
 </div>
-<header>
-  <div class="logo">WORK PANIC</div>
-  <div class="row">
-    <span id="usage" class="badge hidden">FREE: 0 / 10</span>
-    <button id="upgradeTop" class="secondary hidden">Upgrade to PRO</button>
-    <button id="historyBtn" class="secondary hidden">History</button>
-    <button id="logoutBtn" class="danger hidden">Logout</button>
-  </div>
-</header>
 
-<div id="authCard" class="card">
+
+<div id="authCard" class="card authCard">
   <h2 id="authTitle">Sign in</h2>
   <input id="email" type="email" placeholder="Email">
   <input id="password" type="password" placeholder="Password">
@@ -64,7 +65,7 @@ button{border:0;border-radius:11px;padding:12px 17px;cursor:pointer;font-weight:
 
 <div id="appCard" class="hidden">
   <div class="card">
-    <h2>I got the message. Now what?</h2>
+    <h2 style="font-size:30px;letter-spacing:-.8px;margin-top:0">I got the message. Now what?</h2>
     <textarea id="inputText" rows="8" placeholder="Paste the work message here..."></textarea>
     <input id="imageInput" type="file" accept="image/*">
     <div class="row">
