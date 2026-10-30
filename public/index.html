@@ -13,10 +13,12 @@ h1{font-size:32px;margin:0 0 8px}.muted{color:#6b7280}.hidden{display:none!impor
 input,textarea{width:100%;padding:13px;border:1px solid #d1d5db;border-radius:10px;font-size:15px;margin-top:8px}
 textarea{min-height:150px;resize:vertical}
 button{border:0;border-radius:10px;padding:12px 16px;font-weight:700;cursor:pointer;margin:8px 6px 0 0}
-.primary{background:#111827;color:#fff}.secondary{background:#eef2f7;color:#111827}.danger{background:#fee2e2;color:#991b1b}
+button:disabled{opacity:.55;cursor:not-allowed}.primary{background:#111827;color:#fff}.secondary{background:#eef2f7;color:#111827}.danger{background:#fee2e2;color:#991b1b}
 .row{display:flex;gap:10px;flex-wrap:wrap}.result{white-space:pre-wrap;line-height:1.55}.pill{display:inline-block;padding:5px 10px;border-radius:999px;background:#eef2ff;margin:4px 5px 4px 0;font-size:13px}
 label{display:block;font-weight:700;margin-top:12px}.top{display:flex;justify-content:space-between;gap:15px;align-items:center}
 .small{font-size:13px}.error{color:#b91c1c;margin-top:10px}.success{color:#047857;margin-top:10px}
+.usage{font-weight:800;margin-top:4px}.history-item{border-top:1px solid #e5e7eb;padding:16px 0}.history-item:first-child{border-top:0}
+.history-title{font-weight:800}.history-date{color:#6b7280;font-size:12px;margin-top:4px}.history-reply{margin-top:8px;white-space:pre-wrap}
 </style>
 </head>
 <body>
@@ -42,14 +44,20 @@ label{display:block;font-weight:700;margin-top:12px}.top{display:flex;justify-co
 
   <div id="appCard" class="hidden">
     <div class="card">
-      <h1>What do they want?</h1>
-      <p class="muted">Paste the work message or upload a screenshot.</p>
+      <div class="top">
+        <div>
+          <h1>What do they want?</h1>
+          <p class="muted">Paste the work message or upload a screenshot.</p>
+        </div>
+        <div id="usageText" class="usage">FREE: 0 / 10</div>
+      </div>
       <textarea id="message" placeholder="Paste email, Slack, Teams, text message, etc."></textarea>
       <label>Screenshot (optional)</label>
       <input id="screenshot" type="file" accept="image/*">
       <div class="row">
         <button id="analyzeBtn" class="primary">Analyze</button>
         <button id="clearBtn" class="secondary">Clear</button>
+        <button id="historyBtn" class="secondary">History</button>
       </div>
       <div id="appMsg" class="small"></div>
     </div>
@@ -66,6 +74,14 @@ label{display:block;font-weight:700;margin-top:12px}.top{display:flex;justify-co
         <button id="shortBtn" class="secondary">Shorter</button>
         <button id="confBtn" class="secondary">More Confident</button>
       </div>
+    </div>
+
+    <div id="historyCard" class="card hidden">
+      <div class="top">
+        <h2>History</h2>
+        <button id="closeHistoryBtn" class="secondary">Close</button>
+      </div>
+      <div id="historyList" class="small">Loading...</div>
     </div>
   </div>
 </div>
@@ -84,7 +100,11 @@ async function init(){
     sb=window.supabase.createClient(cfg.supabaseUrl,cfg.supabasePublishableKey);
     const {data}=await sb.auth.getSession();
     renderAuth(data.session);
-    sb.auth.onAuthStateChange((_event,session)=>renderAuth(session));
+    if(data.session) loadUsage();
+    sb.auth.onAuthStateChange((_event,session)=>{
+      renderAuth(session);
+      if(session) loadUsage();
+    });
   }catch(e){document.getElementById("authMsg").textContent=e.message}
 }
 
@@ -92,6 +112,30 @@ function renderAuth(session){
   document.getElementById("authCard").classList.toggle("hidden",!!session);
   document.getElementById("appCard").classList.toggle("hidden",!session);
   document.getElementById("logoutBtn").classList.toggle("hidden",!session);
+}
+
+async function getAccessToken(){
+  const {data}=await sb.auth.getSession();
+  return data.session?.access_token || "";
+}
+
+async function apiFetch(url, options={}){
+  const token=await getAccessToken();
+  return fetch(url,{
+    ...options,
+    headers:{
+      ...(options.headers||{}),
+      Authorization:`Bearer ${token}`
+    }
+  });
+}
+
+async function loadUsage(){
+  try{
+    const r=await apiFetch("/api/usage");
+    const data=await r.json();
+    if(r.ok) document.getElementById("usageText").textContent=`FREE: ${data.count} / ${data.limit}`;
+  }catch(e){}
 }
 
 document.getElementById("toggleBtn").onclick=()=>{
@@ -130,9 +174,14 @@ document.getElementById("analyzeBtn").onclick=async()=>{
     const fd=new FormData();
     if(text)fd.append("text",text);
     if(file)fd.append("screenshot",file);
-    const r=await fetch("/api/analyze",{method:"POST",body:fd});
+    const r=await apiFetch("/api/analyze",{method:"POST",body:fd});
     const data=await r.json();
-    if(!r.ok)throw new Error(data.error||"Analysis failed.");
+    if(!r.ok){
+      if(data.code==="FREE_LIMIT_REACHED"){
+        document.getElementById("usageText").textContent=`FREE: ${data.used} / ${data.limit}`;
+      }
+      throw new Error(data.error||"Analysis failed.");
+    }
     document.getElementById("want").textContent=data.whatTheyWant;
     document.getElementById("deadline").textContent=data.deadline;
     document.getElementById("priority").textContent=data.priority;
@@ -140,7 +189,8 @@ document.getElementById("analyzeBtn").onclick=async()=>{
     lastReply=data.professionalReply||"";
     document.getElementById("reply").textContent=lastReply;
     document.getElementById("resultCard").classList.remove("hidden");
-    msg.textContent="Done.";
+    if(data.usage) document.getElementById("usageText").textContent=`FREE: ${data.usage.used} / ${data.usage.limit}`;
+    msg.className="small success"; msg.textContent="Done. Saved to History.";
   }catch(e){msg.className="small error";msg.textContent=e.message}
   finally{btn.disabled=false}
 };
@@ -150,6 +200,34 @@ document.getElementById("clearBtn").onclick=()=>{
   document.getElementById("screenshot").value="";
   document.getElementById("resultCard").classList.add("hidden");
   document.getElementById("appMsg").textContent="";
+};
+
+document.getElementById("historyBtn").onclick=async()=>{
+  const card=document.getElementById("historyCard");
+  const list=document.getElementById("historyList");
+  card.classList.remove("hidden");
+  list.textContent="Loading...";
+  try{
+    const r=await apiFetch("/api/history");
+    const data=await r.json();
+    if(!r.ok) throw new Error(data.error||"Could not load history.");
+    if(!data.history.length){list.textContent="No analyses yet.";return}
+    list.innerHTML=data.history.map(item=>{
+      const result=item.result||{};
+      const date=new Date(item.created_at).toLocaleString();
+      return `<div class="history-item">
+        <div class="history-title">${escapeHtml(result.whatTheyWant||"Work message")}</div>
+        <div class="history-date">${escapeHtml(date)} · ${escapeHtml(item.input_type||"text")}</div>
+        <div style="margin-top:8px"><strong>Deadline:</strong> ${escapeHtml(result.deadline||"Not specified")}</div>
+        <div><strong>Priority:</strong> ${escapeHtml(result.priority||"")}</div>
+        <div class="history-reply">${escapeHtml(result.professionalReply||"")}</div>
+      </div>`;
+    }).join("");
+  }catch(e){list.innerHTML=`<span class="error">${escapeHtml(e.message)}</span>`}
+};
+
+document.getElementById("closeHistoryBtn").onclick=()=>{
+  document.getElementById("historyCard").classList.add("hidden");
 };
 
 document.getElementById("copyBtn").onclick=async()=>{
