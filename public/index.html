@@ -5,31 +5,41 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>WORK PANIC</title>
 <style>
-body{font-family:Arial,sans-serif;margin:0;background:#f5f7fb;color:#111827}
-.wrap{max-width:980px;margin:0 auto;padding:32px 20px}
+body{font-family:Inter,Arial,sans-serif;margin:0;background:linear-gradient(180deg,#f8fafc 0%,#eef2ff 100%);color:#111827;min-height:100vh}
+.wrap{max-width:1080px;margin:0 auto;padding:28px 20px 60px}
 header{display:flex;justify-content:space-between;align-items:center;gap:16px}
-.logo{font-size:28px;font-weight:800}
-.card{background:white;border:1px solid #e5e7eb;border-radius:18px;padding:22px;margin-top:18px;box-shadow:0 6px 20px rgba(0,0,0,.05)}
+.logo{font-size:30px;font-weight:900;letter-spacing:-1px}
+.card{background:rgba(255,255,255,.96);border:1px solid #e5e7eb;border-radius:20px;padding:24px;margin-top:18px;box-shadow:0 12px 35px rgba(15,23,42,.08)}
 input,textarea{width:100%;box-sizing:border-box;padding:12px;border:1px solid #d1d5db;border-radius:10px;margin:6px 0 12px}
-button{border:0;border-radius:10px;padding:11px 16px;cursor:pointer;font-weight:700}
-.primary{background:#111827;color:white}.secondary{background:#eef2ff;color:#3730a3}.danger{background:#fee2e2}
+button{border:0;border-radius:11px;padding:12px 17px;cursor:pointer;font-weight:750;transition:transform .15s,box-shadow .15s,opacity .15s}button:hover{transform:translateY(-1px);box-shadow:0 7px 18px rgba(15,23,42,.12)}
+.primary{background:#111827;color:white}.secondary{background:#eef2ff;color:#3730a3}.danger{background:#fee2e2}.hero{text-align:center;padding:26px 10px 8px}.hero h1{font-size:46px;line-height:1.02;letter-spacing:-2px;margin:0 0 12px}.hero p{max-width:650px;margin:0 auto;color:#64748b;font-size:17px;line-height:1.6}.eyebrow{display:inline-block;padding:7px 11px;border-radius:999px;background:#e0e7ff;color:#3730a3;font-weight:800;font-size:12px;letter-spacing:.5px;text-transform:uppercase;margin-bottom:14px}.featureGrid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:18px}.feature{background:white;border:1px solid #e5e7eb;border-radius:16px;padding:18px}.feature strong{display:block;margin-bottom:6px}.feature span{color:#64748b;font-size:14px;line-height:1.5}
 .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
 .badge{padding:7px 10px;border-radius:999px;background:#eef2ff;font-weight:700}
 .hidden{display:none}
-.pricing{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
-.plan{border:1px solid #e5e7eb;border-radius:16px;padding:18px;background:#fff}
-.plan.popular{border:2px solid #111827}
+.pricing{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.plan{border:1px solid #e5e7eb;border-radius:18px;padding:20px;background:#fff}
+.plan.popular{border:2px solid #111827;box-shadow:0 12px 28px rgba(17,24,39,.10)}
 .price{font-size:30px;font-weight:800;margin:8px 0}
 .small{color:#6b7280;font-size:13px}
 .result h3{margin-bottom:6px}
 .item{margin:8px 0}
 .notice{padding:12px;border-radius:10px;background:#ecfdf5;color:#065f46}
 .error{padding:12px;border-radius:10px;background:#fef2f2;color:#991b1b}
-@media(max-width:760px){.pricing{grid-template-columns:1fr}}
+@media(max-width:760px){.pricing,.featureGrid{grid-template-columns:1fr}.hero h1{font-size:36px}.wrap{padding-top:18px}}
 </style>
 </head>
 <body>
 <div class="wrap">
+<div id="landingHero" class="hero">
+  <div class="eyebrow">AI WORK MESSAGE ASSISTANT</div>
+  <h1>I got the message.<br>Now what?</h1>
+  <p>WORK PANIC turns confusing work messages into clear tasks, deadlines, priorities, and professional replies — in seconds.</p>
+  <div class="featureGrid">
+    <div class="feature"><strong>Understand</strong><span>Know exactly what the sender is asking for.</span></div>
+    <div class="feature"><strong>Prioritize</strong><span>Pull out tasks, deadlines, and urgency.</span></div>
+    <div class="feature"><strong>Reply</strong><span>Get a professional response ready to send.</span></div>
+  </div>
+</div>
 <header>
   <div class="logo">WORK PANIC</div>
   <div class="row">
@@ -165,6 +175,7 @@ async function setSession(session){
   currentUser = session?.user || null;
 
   authCard.classList.toggle("hidden", !!currentUser);
+  $("landingHero").classList.toggle("hidden", !!currentUser);
   appCard.classList.toggle("hidden", !currentUser);
   logoutBtn.classList.toggle("hidden", !currentUser);
   historyBtn.classList.toggle("hidden", !currentUser);
