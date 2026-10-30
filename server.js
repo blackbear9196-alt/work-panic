@@ -9,7 +9,7 @@ app.use(express.json({limit:"2mb"}));
 app.use(express.static(path.join(__dirname,"public")));
 
 const SYSTEM=`You are WORK PANIC, an assistant that turns workplace messages and screenshots into clear action.
-Return ONLY valid JSON with this exact shape:
+Return ONLY valid json with this exact shape:
 {
  "what_they_want":"string",
  "tasks":["string"],
