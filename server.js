@@ -61,23 +61,76 @@ async function getUsage(userId, token) {
 }
 
 async function saveUsage(userId, token, count) {
+  const currentMonth = monthStart();
   const payload = {
     user_id: userId,
-    month_start: monthStart(),
+    month_start: currentMonth,
     analysis_count: count,
     updated_at: new Date().toISOString()
   };
-  const r = await supabaseRequest("/rest/v1/usage_monthly", {
+
+  // Update the existing monthly row when it already exists. This avoids
+  // duplicate-key errors on the unique (user_id, month_start) constraint.
+  const existing = await supabaseRequest(
+    `/rest/v1/usage_monthly?select=id&user_id=eq.${encodeURIComponent(userId)}&month_start=eq.${encodeURIComponent(currentMonth)}&limit=1`,
+    { headers: { Authorization: `Bearer ${token}` } }
+  );
+  const existingText = await existing.text();
+  if (!existing.ok) throw new Error(`Could not check usage: ${existingText}`);
+  const rows = existingText ? JSON.parse(existingText) : [];
+
+  if (rows.length > 0) {
+    const rowId = rows[0].id;
+    const updateR = await supabaseRequest(`/rest/v1/usage_monthly?id=eq.${encodeURIComponent(rowId)}`, {
+      method: "PATCH",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Prefer: "return=representation"
+      },
+      body: JSON.stringify({ analysis_count: count, updated_at: payload.updated_at })
+    });
+    const updateText = await updateR.text();
+    if (!updateR.ok) throw new Error(`Could not update usage: ${updateText}`);
+    return updateText ? JSON.parse(updateText) : [];
+  }
+
+  const insertR = await supabaseRequest("/rest/v1/usage_monthly", {
     method: "POST",
     headers: {
       Authorization: `Bearer ${token}`,
-      Prefer: "resolution=merge-duplicates,return=representation"
+      Prefer: "return=representation"
     },
     body: JSON.stringify(payload)
   });
-  const text = await r.text();
-  if (!r.ok) throw new Error(`Could not save usage: ${text}`);
-  return text ? JSON.parse(text) : [];
+  const insertText = await insertR.text();
+
+  // If another request created the row between our check and insert, update
+  // that row instead of surfacing a duplicate-key error to the user.
+  if (!insertR.ok && insertR.status === 409) {
+    const retryR = await supabaseRequest(
+      `/rest/v1/usage_monthly?select=id&user_id=eq.${encodeURIComponent(userId)}&month_start=eq.${encodeURIComponent(currentMonth)}&limit=1`,
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+    const retryText = await retryR.text();
+    if (!retryR.ok) throw new Error(`Could not recover usage row: ${retryText}`);
+    const retryRows = retryText ? JSON.parse(retryText) : [];
+    if (retryRows.length > 0) {
+      const retryUpdate = await supabaseRequest(`/rest/v1/usage_monthly?id=eq.${encodeURIComponent(retryRows[0].id)}`, {
+        method: "PATCH",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Prefer: "return=representation"
+        },
+        body: JSON.stringify({ analysis_count: count, updated_at: payload.updated_at })
+      });
+      const retryUpdateText = await retryUpdate.text();
+      if (!retryUpdate.ok) throw new Error(`Could not update usage after conflict: ${retryUpdateText}`);
+      return retryUpdateText ? JSON.parse(retryUpdateText) : [];
+    }
+  }
+
+  if (!insertR.ok) throw new Error(`Could not save usage: ${insertText}`);
+  return insertText ? JSON.parse(insertText) : [];
 }
 
 async function stripeRequest(pathname, options = {}) {
