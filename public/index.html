@@ -165,7 +165,10 @@ async function setSession(session){
   historyBtn.classList.toggle("hidden", !currentUser);
   upgradeTop.classList.toggle("hidden", !currentUser);
 
-  if(currentUser) await refreshUsage();
+  if(currentUser){
+    await refreshUsage();
+    await syncCheckout();
+  }
 }
 
 async function login(){
@@ -214,7 +217,13 @@ async function refreshUsage(){
   });
 
   const d = await r.json();
-  usage.textContent = `FREE: ${d.count || 0} / ${d.limit || 10}`;
+  if(d.pro){
+    usage.textContent = "PRO: Unlimited";
+    upgradeTop.classList.add("hidden");
+  }else{
+    usage.textContent = `FREE: ${d.count || 0} / ${d.limit || 10}`;
+    upgradeTop.classList.remove("hidden");
+  }
 }
 
 async function analyze(){
@@ -266,7 +275,7 @@ async function analyze(){
     }
 
     renderResult(d.result);
-    usage.textContent = `FREE: ${d.usage.count} / ${d.usage.limit}`;
+    usage.textContent = d.usage.pro ? "PRO: Unlimited" : `FREE: ${d.usage.count} / ${d.usage.limit}`;
     msg.innerHTML = '<div class="notice">Done. Saved to History.</div>';
   }catch(e){
     msg.innerHTML = `<div class="error">${escapeHtml(e.message)}</div>`;
@@ -339,6 +348,33 @@ async function loadHistory(){
     `).join("") || "<p>No history yet.</p>");
 
   historyCard.classList.remove("hidden");
+}
+
+async function syncCheckout(){
+  const params = new URLSearchParams(location.search);
+  const sessionId = params.get("session_id");
+  const checkoutStatus = params.get("checkout");
+  if(checkoutStatus !== "success" || !sessionId) return;
+
+  const t = await token();
+  if(!t) return;
+
+  try{
+    const r = await fetch("/api/sync-subscription", {
+      method:"POST",
+      headers:{"Content-Type":"application/json", Authorization:"Bearer " + t},
+      body:JSON.stringify({session_id:sessionId})
+    });
+    const d = await r.json();
+    if(r.ok && d.pro){
+      usage.textContent = "PRO: Unlimited";
+      upgradeTop.classList.add("hidden");
+      msg.innerHTML = '<div class="notice">PRO is now active. Unlimited analysis is enabled.</div>';
+    }
+  }catch(e){
+    console.error(e);
+  }
+  history.replaceState({}, document.title, location.pathname);
 }
 
 async function checkout(){
