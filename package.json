@@ -1,0 +1,13 @@
+{
+  "name": "work-panic-v02",
+  "version": "0.2.0",
+  "private": true,
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^5.1.0",
+    "multer": "^2.0.2",
+    "openai": "^6.11.0"
+  }
+}
