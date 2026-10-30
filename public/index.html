@@ -208,6 +208,16 @@ async function token(){
   return data.session?.access_token;
 }
 
+
+async function readJsonResponse(r){
+  const text = await r.text();
+  try {
+    return { data: text ? JSON.parse(text) : {}, text };
+  } catch (_) {
+    throw new Error(`Server returned ${r.status} ${r.statusText}: ${text.slice(0,180)}`);
+  }
+}
+
 async function refreshUsage(){
   const t = await token();
   if(!t) return;
@@ -216,7 +226,8 @@ async function refreshUsage(){
     headers:{Authorization:"Bearer " + t}
   });
 
-  const d = await r.json();
+  const {data:d} = await readJsonResponse(r);
+  if(!r.ok) throw new Error(d.message || d.error || `Usage request failed (${r.status})`);
   if(d.pro){
     usage.textContent = "PRO: Unlimited";
     upgradeTop.classList.add("hidden");
@@ -267,7 +278,7 @@ async function analyze(){
       })
     });
 
-    const d = await r.json();
+    const {data:d} = await readJsonResponse(r);
 
     if(!r.ok){
       msg.innerHTML = `<div class="error">${escapeHtml(d.message || d.error || "Analysis failed")}</div>`;
@@ -336,7 +347,8 @@ async function loadHistory(){
     headers:{Authorization:"Bearer " + t}
   });
 
-  const d = await r.json();
+  const {data:d} = await readJsonResponse(r);
+  if(!r.ok) throw new Error(d.error || `History request failed (${r.status})`);
 
   historyCard.innerHTML =
     "<h2>History</h2>" +
@@ -365,7 +377,7 @@ async function syncCheckout(){
       headers:{"Content-Type":"application/json", Authorization:"Bearer " + t},
       body:JSON.stringify({session_id:sessionId})
     });
-    const d = await r.json();
+    const {data:d} = await readJsonResponse(r);
     if(r.ok && d.pro){
       usage.textContent = "PRO: Unlimited";
       upgradeTop.classList.add("hidden");
@@ -390,7 +402,7 @@ async function checkout(){
       headers:{Authorization:"Bearer " + t}
     });
 
-    const d = await r.json();
+    const {data:d} = await readJsonResponse(r);
 
     if(!r.ok){
       msg.innerHTML = `<div class="error">${escapeHtml(d.error || "Stripe checkout is not configured yet.")}</div>`;
