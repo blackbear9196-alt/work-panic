@@ -6,19 +6,7 @@
 <title>WORK PANIC — I got the message. Now what?</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
-*{box-sizing:border-box}body{margin:0;font-family:Inter,Arial,sans-serif;background:#f6f7fb;color:#111827}
-.wrap{max-width:900px;margin:auto;padding:28px 18px}.brand{font-weight:900;font-size:28px;letter-spacing:-1px}.tag{color:#6b7280;margin-top:4px}
-.card{background:white;border:1px solid #e5e7eb;border-radius:18px;padding:24px;margin-top:20px;box-shadow:0 8px 30px rgba(0,0,0,.05)}
-h1{font-size:32px;margin:0 0 8px}.muted{color:#6b7280}.hidden{display:none!important}
-input,textarea{width:100%;padding:13px;border:1px solid #d1d5db;border-radius:10px;font-size:15px;margin-top:8px}
-textarea{min-height:150px;resize:vertical}
-button{border:0;border-radius:10px;padding:12px 16px;font-weight:700;cursor:pointer;margin:8px 6px 0 0}
-button:disabled{opacity:.55;cursor:not-allowed}.primary{background:#111827;color:#fff}.secondary{background:#eef2f7;color:#111827}.danger{background:#fee2e2;color:#991b1b}
-.row{display:flex;gap:10px;flex-wrap:wrap}.result{white-space:pre-wrap;line-height:1.55}.pill{display:inline-block;padding:5px 10px;border-radius:999px;background:#eef2ff;margin:4px 5px 4px 0;font-size:13px}
-label{display:block;font-weight:700;margin-top:12px}.top{display:flex;justify-content:space-between;gap:15px;align-items:center}
-.small{font-size:13px}.error{color:#b91c1c;margin-top:10px}.success{color:#047857;margin-top:10px}
-.usage{font-weight:800;margin-top:4px}.history-item{border-top:1px solid #e5e7eb;padding:16px 0}.history-item:first-child{border-top:0}
-.history-title{font-weight:800}.history-date{color:#6b7280;font-size:12px;margin-top:4px}.history-reply{margin-top:8px;white-space:pre-wrap}
+*{box-sizing:border-box}body{margin:0;font-family:Inter,Arial,sans-serif;background:#f6f7fb;color:#111827}.wrap{max-width:980px;margin:auto;padding:28px 18px 60px}.brand{font-weight:900;font-size:28px;letter-spacing:-1px}.tag{color:#6b7280;margin-top:4px}.card{background:white;border:1px solid #e5e7eb;border-radius:18px;padding:24px;margin-top:20px;box-shadow:0 8px 30px rgba(0,0,0,.05)}h1{font-size:32px;margin:0 0 8px}.muted{color:#6b7280}.hidden{display:none!important}input,textarea{width:100%;padding:13px;border:1px solid #d1d5db;border-radius:10px;font-size:15px;margin-top:8px}textarea{min-height:150px;resize:vertical}button{border:0;border-radius:10px;padding:12px 16px;font-weight:700;cursor:pointer;margin:8px 6px 0 0}button:disabled{opacity:.55;cursor:not-allowed}.primary{background:#111827;color:#fff}.secondary{background:#eef2f7;color:#111827}.danger{background:#fee2e2;color:#991b1b}.row{display:flex;gap:10px;flex-wrap:wrap}.result{white-space:pre-wrap;line-height:1.55}.pill{display:inline-block;padding:5px 10px;border-radius:999px;background:#eef2ff;margin:4px 5px 4px 0;font-size:13px}label{display:block;font-weight:700;margin-top:12px}.top{display:flex;justify-content:space-between;gap:15px;align-items:center}.small{font-size:13px}.error{color:#b91c1c;margin-top:10px}.success{color:#047857;margin-top:10px}.usage{font-weight:900;margin-top:4px;background:#fff7ed;color:#9a3412;padding:9px 12px;border-radius:999px;font-size:13px;white-space:nowrap}.history-item{border-top:1px solid #e5e7eb;padding:16px 0}.history-item:first-child{border-top:0}.history-title{font-weight:800}.history-date{color:#6b7280;font-size:12px;margin-top:4px}.history-reply{margin-top:8px;white-space:pre-wrap}.hero{padding:30px}.hero h1{font-size:40px;letter-spacing:-1.5px}.hero-copy{font-size:17px;line-height:1.6;max-width:700px}.upgrade{background:#111827;color:#fff;padding:10px 15px;border-radius:10px;font-weight:800;border:0;cursor:pointer}.pricing-head{display:flex;justify-content:space-between;align-items:end;gap:20px}.pricing-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:18px}.plan{border:1px solid #e5e7eb;border-radius:16px;padding:20px;background:#fff;position:relative}.plan.featured{border:2px solid #111827;padding:19px}.plan-badge{position:absolute;top:12px;right:12px;background:#111827;color:#fff;font-size:11px;font-weight:900;padding:5px 8px;border-radius:999px}.plan h3{font-size:20px;margin:0 0 7px}.price{font-size:30px;font-weight:900;letter-spacing:-1px}.price span{font-size:13px;font-weight:600;color:#6b7280}.plan ul{padding-left:20px;line-height:1.8;color:#4b5563;min-height:120px}.plan button{width:100%;margin-top:4px}.pro-btn{background:#111827;color:#fff}.team-btn{background:#eef2f7;color:#111827}.pricing-note{margin-top:12px;color:#6b7280;font-size:12px}.section-label{font-size:12px;font-weight:900;letter-spacing:1px;color:#6b7280;text-transform:uppercase}.upgrade-bar{display:flex;justify-content:space-between;align-items:center;gap:15px;padding:14px 16px;background:#f3f4f6;border-radius:14px;margin-top:16px}.upgrade-bar strong{display:block}.upgrade-bar span{font-size:13px;color:#6b7280}.footer{text-align:center;color:#9ca3af;font-size:12px;margin-top:28px}@media(max-width:760px){.pricing-grid{grid-template-columns:1fr}.hero h1{font-size:32px}.pricing-head,.upgrade-bar{align-items:flex-start;flex-direction:column}.usage{white-space:normal}.top{align-items:flex-start}}
 </style>
 </head>
 <body>
@@ -28,8 +16,11 @@ label{display:block;font-weight:700;margin-top:12px}.top{display:flex;justify-co
     <button id="logoutBtn" class="danger hidden">Log out</button>
   </div>
 
-  <div id="authCard" class="card">
-    <h1 id="authTitle">Create your account</h1>
+  <div id="authCard" class="card hero">
+    <div class="section-label">WORK PANIC</div>
+    <h1>Stop wondering what they mean.</h1>
+    <p class="hero-copy muted">Paste a work message or upload a screenshot. WORK PANIC tells you what they want, what you need to do, the deadline, the priority, and gives you a professional reply.</p>
+    <h2 id="authTitle">Create your account</h2>
     <p class="muted">Use your email and password to access WORK PANIC.</p>
     <label>Email</label>
     <input id="email" type="email" placeholder="you@example.com">
@@ -46,6 +37,7 @@ label{display:block;font-weight:700;margin-top:12px}.top{display:flex;justify-co
     <div class="card">
       <div class="top">
         <div>
+          <div class="section-label">AI WORK MESSAGE ANALYZER</div>
           <h1>What do they want?</h1>
           <p class="muted">Paste the work message or upload a screenshot.</p>
         </div>
@@ -60,6 +52,10 @@ label{display:block;font-weight:700;margin-top:12px}.top{display:flex;justify-co
         <button id="historyBtn" class="secondary">History</button>
       </div>
       <div id="appMsg" class="small"></div>
+      <div class="upgrade-bar">
+        <div><strong>Need more than 10 analyses?</strong><span>Upgrade to PRO for unlimited analysis and full reply tools.</span></div>
+        <button id="upgradeTopBtn" class="upgrade">Upgrade to PRO</button>
+      </div>
     </div>
 
     <div id="resultCard" class="card hidden">
@@ -83,7 +79,53 @@ label{display:block;font-weight:700;margin-top:12px}.top{display:flex;justify-co
       </div>
       <div id="historyList" class="small">Loading...</div>
     </div>
+
+    <div id="pricingCard" class="card">
+      <div class="pricing-head">
+        <div><div class="section-label">PLANS</div><h2 style="margin:5px 0 0">Choose your WORK PANIC plan</h2></div>
+        <div class="muted small">Start free. Upgrade when you need more.</div>
+      </div>
+      <div class="pricing-grid">
+        <div class="plan">
+          <h3>FREE</h3>
+          <div class="price">$0 <span>/ month</span></div>
+          <ul>
+            <li>10 analyses / month</li>
+            <li>Text analysis</li>
+            <li>Screenshot analysis</li>
+            <li>History</li>
+          </ul>
+          <button class="secondary" disabled>Current Plan</button>
+        </div>
+        <div class="plan featured">
+          <div class="plan-badge">MOST POPULAR</div>
+          <h3>PRO</h3>
+          <div class="price">$9.99 <span>/ month</span></div>
+          <ul>
+            <li>Unlimited analysis</li>
+            <li>Screenshot analysis</li>
+            <li>Task & history tracking</li>
+            <li>Professional replies</li>
+            <li>Shorter & More Confident replies</li>
+          </ul>
+          <button id="proBtn" class="pro-btn">Upgrade to PRO</button>
+        </div>
+        <div class="plan">
+          <h3>TEAM</h3>
+          <div class="price">$29.99 <span>/ month</span></div>
+          <ul>
+            <li>Multiple users</li>
+            <li>Shared history</li>
+            <li>Team workspace</li>
+            <li>Built for growing teams</li>
+          </ul>
+          <button id="teamBtn" class="team-btn">Choose TEAM</button>
+        </div>
+      </div>
+      <div class="pricing-note">Payments will be connected next. The buttons are ready for the Stripe step.</div>
+    </div>
   </div>
+  <div class="footer">WORK PANIC · I got the message. Now what?</div>
 </div>
 
 <script>
@@ -121,13 +163,7 @@ async function getAccessToken(){
 
 async function apiFetch(url, options={}){
   const token=await getAccessToken();
-  return fetch(url,{
-    ...options,
-    headers:{
-      ...(options.headers||{}),
-      Authorization:`Bearer ${token}`
-    }
-  });
+  return fetch(url,{...options,headers:{...(options.headers||{}),Authorization:`Bearer ${token}`}});
 }
 
 async function loadUsage(){
@@ -152,14 +188,9 @@ document.getElementById("authBtn").onclick=async()=>{
   const msg=document.getElementById("authMsg");
   msg.className="small";
   if(!email||!password){msg.textContent="Enter email and password.";return}
-  const result=signupMode
-    ? await sb.auth.signUp({email,password})
-    : await sb.auth.signInWithPassword({email,password});
+  const result=signupMode?await sb.auth.signUp({email,password}):await sb.auth.signInWithPassword({email,password});
   if(result.error){msg.className="small error";msg.textContent=result.error.message;return}
-  if(signupMode && !result.data.session){
-    msg.className="small success";
-    msg.textContent="Account created. Check your email to confirm your account, then log in.";
-  }
+  if(signupMode && !result.data.session){msg.className="small success";msg.textContent="Account created. Check your email to confirm your account, then log in.";}
 };
 
 document.getElementById("logoutBtn").onclick=()=>sb.auth.signOut();
@@ -177,9 +208,7 @@ document.getElementById("analyzeBtn").onclick=async()=>{
     const r=await apiFetch("/api/analyze",{method:"POST",body:fd});
     const data=await r.json();
     if(!r.ok){
-      if(data.code==="FREE_LIMIT_REACHED"){
-        document.getElementById("usageText").textContent=`FREE: ${data.used} / ${data.limit}`;
-      }
+      if(data.code==="FREE_LIMIT_REACHED") document.getElementById("usageText").textContent=`FREE: ${data.used} / ${data.limit}`;
       throw new Error(data.error||"Analysis failed.");
     }
     document.getElementById("want").textContent=data.whatTheyWant;
@@ -203,45 +232,29 @@ document.getElementById("clearBtn").onclick=()=>{
 };
 
 document.getElementById("historyBtn").onclick=async()=>{
-  const card=document.getElementById("historyCard");
-  const list=document.getElementById("historyList");
-  card.classList.remove("hidden");
-  list.textContent="Loading...";
+  const card=document.getElementById("historyCard"), list=document.getElementById("historyList");
+  card.classList.remove("hidden"); list.textContent="Loading...";
   try{
-    const r=await apiFetch("/api/history");
-    const data=await r.json();
+    const r=await apiFetch("/api/history"); const data=await r.json();
     if(!r.ok) throw new Error(data.error||"Could not load history.");
     if(!data.history.length){list.textContent="No analyses yet.";return}
     list.innerHTML=data.history.map(item=>{
-      const result=item.result||{};
-      const date=new Date(item.created_at).toLocaleString();
-      return `<div class="history-item">
-        <div class="history-title">${escapeHtml(result.whatTheyWant||"Work message")}</div>
-        <div class="history-date">${escapeHtml(date)} · ${escapeHtml(item.input_type||"text")}</div>
-        <div style="margin-top:8px"><strong>Deadline:</strong> ${escapeHtml(result.deadline||"Not specified")}</div>
-        <div><strong>Priority:</strong> ${escapeHtml(result.priority||"")}</div>
-        <div class="history-reply">${escapeHtml(result.professionalReply||"")}</div>
-      </div>`;
+      const result=item.result||{}; const date=new Date(item.created_at).toLocaleString();
+      return `<div class="history-item"><div class="history-title">${escapeHtml(result.whatTheyWant||"Work message")}</div><div class="history-date">${escapeHtml(date)} · ${escapeHtml(item.input_type||"text")}</div><div style="margin-top:8px"><strong>Deadline:</strong> ${escapeHtml(result.deadline||"Not specified")}</div><div><strong>Priority:</strong> ${escapeHtml(result.priority||"")}</div><div class="history-reply">${escapeHtml(result.professionalReply||"")}</div></div>`;
     }).join("");
   }catch(e){list.innerHTML=`<span class="error">${escapeHtml(e.message)}</span>`}
 };
 
-document.getElementById("closeHistoryBtn").onclick=()=>{
-  document.getElementById("historyCard").classList.add("hidden");
-};
+document.getElementById("closeHistoryBtn").onclick=()=>document.getElementById("historyCard").classList.add("hidden");
 
-document.getElementById("copyBtn").onclick=async()=>{
-  await navigator.clipboard.writeText(lastReply);
-  document.getElementById("appMsg").textContent="Reply copied.";
-};
-document.getElementById("shortBtn").onclick=()=>{
-  lastReply="Thanks for the message. I’ll take care of this and confirm the timing shortly.";
-  document.getElementById("reply").textContent=lastReply;
-};
-document.getElementById("confBtn").onclick=()=>{
-  lastReply="Understood. I’ll handle this and confirm the required timing and next steps.";
-  document.getElementById("reply").textContent=lastReply;
-};
+document.getElementById("copyBtn").onclick=async()=>{await navigator.clipboard.writeText(lastReply);document.getElementById("appMsg").textContent="Reply copied."};
+document.getElementById("shortBtn").onclick=()=>{lastReply="Thanks for the message. I’ll take care of this and confirm the timing shortly.";document.getElementById("reply").textContent=lastReply};
+document.getElementById("confBtn").onclick=()=>{lastReply="Understood. I’ll handle this and confirm the required timing and next steps.";document.getElementById("reply").textContent=lastReply};
+
+document.getElementById("upgradeTopBtn").onclick=()=>document.getElementById("pricingCard").scrollIntoView({behavior:"smooth"});
+document.getElementById("proBtn").onclick=()=>alert("PRO checkout is the next step. We’ll connect Stripe next.");
+document.getElementById("teamBtn").onclick=()=>alert("TEAM checkout is the next step. We’ll connect Stripe next.");
+
 function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]))}
 init();
 </script>
