@@ -1,33 +1,171 @@
-<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>WORK PANIC</title>
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>WORK PANIC — I got the message. Now what?</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
-*{box-sizing:border-box}body{margin:0;background:#f5f7fb;color:#101828;font-family:Inter,system-ui,sans-serif}.wrap{max-width:960px;margin:auto;padding:18px}.top{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px}.logo{font-weight:950;font-size:22px}.tag{font-size:12px;color:#667085;border:1px solid #e4e7ec;background:#fff;border-radius:99px;padding:7px 10px}.hero{background:#111827;color:white;border-radius:28px;padding:38px 28px}.hero h1{font-size:clamp(38px,7vw,64px);line-height:.92;letter-spacing:-.06em;margin:0 0 14px}.hero p{color:#d0d5dd;max-width:650px;line-height:1.55}.card{background:white;border:1px solid #e4e7ec;border-radius:22px;padding:20px;margin-top:16px}.muted{color:#667085}.row{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}textarea{width:100%;min-height:150px;border:1px solid #d0d5dd;border-radius:15px;padding:14px;font:inherit;margin-top:12px}.btn{border:0;border-radius:13px;padding:13px 17px;font-weight:850;cursor:pointer;background:#111827;color:#fff}.btn.blue{background:#2563eb}.btn.alt{background:#fff;color:#111827;border:1px solid #d0d5dd}.upload{border:2px dashed #d0d5dd;border-radius:16px;padding:20px;text-align:center;margin-top:14px}.upload input{display:none}.preview{max-width:100%;max-height:260px;display:none;margin:12px auto;border-radius:14px}.hidden{display:none}.grid{display:grid;grid-template-columns:1.5fr 1fr;gap:12px;margin-top:12px}.box{border:1px solid #e4e7ec;border-radius:16px;padding:16px}.box h3{font-size:12px;color:#667085;text-transform:uppercase;letter-spacing:.08em;margin:0 0 8px}.big{font-weight:900;font-size:21px}.priority{display:inline-block;padding:6px 10px;border-radius:99px;font-weight:900;font-size:12px}.high{background:#fee2e2;color:#991b1b}.medium{background:#ffedd5;color:#9a3412}.normal{background:#d1fae5;color:#065f46}.task{padding:10px 0;border-bottom:1px solid #eef2f6}.task:last-child{border-bottom:0}.reply{background:#f8fafc;padding:14px;border-radius:14px;line-height:1.55}.spinner{display:none;color:#667085;margin-top:10px}.note{font-size:12px;color:#667085;line-height:1.5;margin-top:12px}@media(max-width:700px){.grid{grid-template-columns:1fr}.wrap{padding:12px}}
-</style></head><body><div class="wrap">
-<div class="top"><div class="logo">⚡ WORK PANIC</div><div class="tag">AI MVP v0.2</div></div>
-<section class="hero"><h1>I got the message.<br>Now what?</h1><p>Upload a screenshot or paste a work message. WORK PANIC turns it into tasks, deadlines, priority, and a ready-to-send reply.</p></section>
-<section class="card"><h2>Analyze a work message</h2><div class="muted">Paste the message exactly as you received it.</div>
-<textarea id="message" placeholder="Example: Can you update the sales report before Friday's meeting? Please check the totals and send me the final version Thursday afternoon."></textarea>
-<div class="row"><button class="btn blue" onclick="analyze()">⚡ Analyze with AI</button><button class="btn alt" onclick="demo()">Try Example</button></div>
-<div class="upload"><label class="btn alt" for="file">📸 Upload Screenshot</label><input id="file" type="file" accept="image/*"><img id="preview" class="preview"><div class="note">Screenshot analysis is sent to your configured AI backend. Do not use confidential company information during testing.</div></div>
-<div id="spin" class="spinner">Analyzing…</div></section>
-<section id="out" class="card hidden"><h2>Here's what they want</h2><div class="grid"><div class="box"><h3>What do they want?</h3><div id="want" class="big"></div></div><div class="box"><h3>Priority</h3><div id="priority"></div><h3 style="margin-top:16px">Deadline</h3><div id="deadline" class="big"></div></div></div>
-<div class="box" style="margin-top:12px"><h3>Your tasks</h3><div id="tasks"></div></div>
-<div class="box" style="margin-top:12px"><h3>Professional reply</h3><div id="reply" class="reply"></div><div class="row"><button class="btn" onclick="copyText('reply')">Copy</button><button class="btn alt" onclick="showReply('short')">Shorter</button><button class="btn alt" onclick="showReply('confident')">Confident</button></div></div>
-<div id="notes" class="note"></div></section>
-<section class="card"><b>Next production steps</b><div class="note">Authentication → usage limits → Stripe → history → team workspace → deployment. The AI connection in this version uses the OpenAI Responses API; new integrations should use Responses rather than the retired Assistants API.</div></section>
+*{box-sizing:border-box}body{margin:0;font-family:Inter,Arial,sans-serif;background:#f6f7fb;color:#111827}
+.wrap{max-width:900px;margin:auto;padding:28px 18px}.brand{font-weight:900;font-size:28px;letter-spacing:-1px}.tag{color:#6b7280;margin-top:4px}
+.card{background:white;border:1px solid #e5e7eb;border-radius:18px;padding:24px;margin-top:20px;box-shadow:0 8px 30px rgba(0,0,0,.05)}
+h1{font-size:32px;margin:0 0 8px}.muted{color:#6b7280}.hidden{display:none!important}
+input,textarea{width:100%;padding:13px;border:1px solid #d1d5db;border-radius:10px;font-size:15px;margin-top:8px}
+textarea{min-height:150px;resize:vertical}
+button{border:0;border-radius:10px;padding:12px 16px;font-weight:700;cursor:pointer;margin:8px 6px 0 0}
+.primary{background:#111827;color:#fff}.secondary{background:#eef2f7;color:#111827}.danger{background:#fee2e2;color:#991b1b}
+.row{display:flex;gap:10px;flex-wrap:wrap}.result{white-space:pre-wrap;line-height:1.55}.pill{display:inline-block;padding:5px 10px;border-radius:999px;background:#eef2ff;margin:4px 5px 4px 0;font-size:13px}
+label{display:block;font-weight:700;margin-top:12px}.top{display:flex;justify-content:space-between;gap:15px;align-items:center}
+.small{font-size:13px}.error{color:#b91c1c;margin-top:10px}.success{color:#047857;margin-top:10px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <div><div class="brand">WORK PANIC</div><div class="tag">I got the message. Now what?</div></div>
+    <button id="logoutBtn" class="danger hidden">Log out</button>
+  </div>
+
+  <div id="authCard" class="card">
+    <h1 id="authTitle">Create your account</h1>
+    <p class="muted">Use your email and password to access WORK PANIC.</p>
+    <label>Email</label>
+    <input id="email" type="email" placeholder="you@example.com">
+    <label>Password</label>
+    <input id="password" type="password" placeholder="At least 6 characters">
+    <div class="row">
+      <button id="authBtn" class="primary">Sign up</button>
+      <button id="toggleBtn" class="secondary">I already have an account</button>
+    </div>
+    <div id="authMsg" class="small"></div>
+  </div>
+
+  <div id="appCard" class="hidden">
+    <div class="card">
+      <h1>What do they want?</h1>
+      <p class="muted">Paste the work message or upload a screenshot.</p>
+      <textarea id="message" placeholder="Paste email, Slack, Teams, text message, etc."></textarea>
+      <label>Screenshot (optional)</label>
+      <input id="screenshot" type="file" accept="image/*">
+      <div class="row">
+        <button id="analyzeBtn" class="primary">Analyze</button>
+        <button id="clearBtn" class="secondary">Clear</button>
+      </div>
+      <div id="appMsg" class="small"></div>
+    </div>
+
+    <div id="resultCard" class="card hidden">
+      <h2>WORK PANIC Result</h2>
+      <div><strong>What they want</strong><div id="want" class="result"></div></div>
+      <div style="margin-top:18px"><strong>Tasks</strong><div id="tasks"></div></div>
+      <div style="margin-top:18px"><strong>Deadline</strong><div id="deadline"></div></div>
+      <div style="margin-top:18px"><strong>Priority</strong><div id="priority"></div></div>
+      <div style="margin-top:18px"><strong>Professional reply</strong><div id="reply" class="result"></div></div>
+      <div class="row">
+        <button id="copyBtn" class="secondary">Copy Reply</button>
+        <button id="shortBtn" class="secondary">Shorter</button>
+        <button id="confBtn" class="secondary">More Confident</button>
+      </div>
+    </div>
+  </div>
 </div>
+
 <script>
-let result=null;
-document.getElementById("file").onchange=e=>{const f=e.target.files[0];if(!f)return;const p=document.getElementById("preview");p.src=URL.createObjectURL(f);p.style.display="block"};
-function demo(){document.getElementById("message").value="Can you update the sales report before Friday's meeting? Please check last month's numbers and send me the final version by Thursday afternoon. Also make sure the totals match the finance sheet."}
-async function analyze(){
- const msg=document.getElementById("message").value.trim(), file=document.getElementById("file").files[0];
- if(!msg&&!file){alert("Paste a message or upload a screenshot.");return}
- const fd=new FormData();if(msg)fd.append("message",msg);if(file)fd.append("screenshot",file);
- document.getElementById("spin").style.display="block";
- try{const r=await fetch("/api/analyze",{method:"POST",body:fd});const d=await r.json();if(!r.ok)throw new Error(d.error||"Failed");render(d)}catch(e){alert(e.message)}finally{document.getElementById("spin").style.display="none"}
+let sb=null, signupMode=true, lastReply="";
+
+async function init(){
+  try{
+    const r=await fetch("/api/config");
+    const cfg=await r.json();
+    if(!cfg.supabaseUrl || !cfg.supabasePublishableKey){
+      document.getElementById("authMsg").textContent="Supabase configuration is missing on the server.";
+      return;
+    }
+    sb=window.supabase.createClient(cfg.supabaseUrl,cfg.supabasePublishableKey);
+    const {data}=await sb.auth.getSession();
+    renderAuth(data.session);
+    sb.auth.onAuthStateChange((_event,session)=>renderAuth(session));
+  }catch(e){document.getElementById("authMsg").textContent=e.message}
 }
-function render(d){result=d;document.getElementById("out").classList.remove("hidden");document.getElementById("want").textContent=d.what_they_want||"Not specified";document.getElementById("deadline").textContent=d.deadline||"Not specified";document.getElementById("priority").innerHTML=`<span class="priority ${(d.priority||"NORMAL").toLowerCase()}">${d.priority||"NORMAL"}</span>`;document.getElementById("tasks").innerHTML=(d.tasks||[]).map((x,i)=>`<div class="task"><b>${i+1}.</b> ${esc(x)}</div>`).join("");document.getElementById("reply").textContent=d.reply_professional||"";document.getElementById("notes").textContent=(d.notes||[]).join(" • ");document.getElementById("out").scrollIntoView({behavior:"smooth"})}
-function showReply(t){if(!result)return;document.getElementById("reply").textContent=t==="short"?result.reply_short:result.reply_confident}
-function copyText(id){navigator.clipboard?.writeText(document.getElementById(id).textContent).then(()=>alert("Copied."))}
-function esc(s){return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]))}
-</script></body></html>
+
+function renderAuth(session){
+  document.getElementById("authCard").classList.toggle("hidden",!!session);
+  document.getElementById("appCard").classList.toggle("hidden",!session);
+  document.getElementById("logoutBtn").classList.toggle("hidden",!session);
+}
+
+document.getElementById("toggleBtn").onclick=()=>{
+  signupMode=!signupMode;
+  document.getElementById("authTitle").textContent=signupMode?"Create your account":"Log in";
+  document.getElementById("authBtn").textContent=signupMode?"Sign up":"Log in";
+  document.getElementById("toggleBtn").textContent=signupMode?"I already have an account":"Create an account";
+  document.getElementById("authMsg").textContent="";
+};
+
+document.getElementById("authBtn").onclick=async()=>{
+  const email=document.getElementById("email").value.trim();
+  const password=document.getElementById("password").value;
+  const msg=document.getElementById("authMsg");
+  msg.className="small";
+  if(!email||!password){msg.textContent="Enter email and password.";return}
+  const result=signupMode
+    ? await sb.auth.signUp({email,password})
+    : await sb.auth.signInWithPassword({email,password});
+  if(result.error){msg.className="small error";msg.textContent=result.error.message;return}
+  if(signupMode && !result.data.session){
+    msg.className="small success";
+    msg.textContent="Account created. Check your email to confirm your account, then log in.";
+  }
+};
+
+document.getElementById("logoutBtn").onclick=()=>sb.auth.signOut();
+
+document.getElementById("analyzeBtn").onclick=async()=>{
+  const btn=document.getElementById("analyzeBtn"), msg=document.getElementById("appMsg");
+  const text=document.getElementById("message").value.trim();
+  const file=document.getElementById("screenshot").files[0];
+  if(!text&&!file){msg.className="small error";msg.textContent="Paste a message or upload a screenshot.";return}
+  btn.disabled=true; msg.className="small"; msg.textContent="Analyzing...";
+  try{
+    const fd=new FormData();
+    if(text)fd.append("text",text);
+    if(file)fd.append("screenshot",file);
+    const r=await fetch("/api/analyze",{method:"POST",body:fd});
+    const data=await r.json();
+    if(!r.ok)throw new Error(data.error||"Analysis failed.");
+    document.getElementById("want").textContent=data.whatTheyWant;
+    document.getElementById("deadline").textContent=data.deadline;
+    document.getElementById("priority").textContent=data.priority;
+    document.getElementById("tasks").innerHTML=(data.tasks||[]).map(x=>`<span class="pill">${escapeHtml(x)}</span>`).join("");
+    lastReply=data.professionalReply||"";
+    document.getElementById("reply").textContent=lastReply;
+    document.getElementById("resultCard").classList.remove("hidden");
+    msg.textContent="Done.";
+  }catch(e){msg.className="small error";msg.textContent=e.message}
+  finally{btn.disabled=false}
+};
+
+document.getElementById("clearBtn").onclick=()=>{
+  document.getElementById("message").value="";
+  document.getElementById("screenshot").value="";
+  document.getElementById("resultCard").classList.add("hidden");
+  document.getElementById("appMsg").textContent="";
+};
+
+document.getElementById("copyBtn").onclick=async()=>{
+  await navigator.clipboard.writeText(lastReply);
+  document.getElementById("appMsg").textContent="Reply copied.";
+};
+document.getElementById("shortBtn").onclick=()=>{
+  lastReply="Thanks for the message. I’ll take care of this and confirm the timing shortly.";
+  document.getElementById("reply").textContent=lastReply;
+};
+document.getElementById("confBtn").onclick=()=>{
+  lastReply="Understood. I’ll handle this and confirm the required timing and next steps.";
+  document.getElementById("reply").textContent=lastReply;
+};
+function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]))}
+init();
+</script>
+</body>
+</html>
