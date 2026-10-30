@@ -2,7 +2,7 @@ const express = require("express");
 const path = require("path");
 
 const app = express();
-app.use(express.json({ limit: "10mb" }));
+app.use(express.json({ limit: "15mb" }));
 app.use(express.static(path.join(__dirname, "public")));
 
 const PORT = process.env.PORT || 3000;
@@ -37,12 +37,13 @@ async function requireUser(req, res) {
     res.status(401).json({ error: "Not authenticated" });
     return null;
   }
-  const user = await getUserFromToken(auth.slice(7));
+  const token = auth.slice(7);
+  const user = await getUserFromToken(token);
   if (!user?.id) {
     res.status(401).json({ error: "Invalid session" });
     return null;
   }
-  return { user, token: auth.slice(7) };
+  return { user, token };
 }
 
 function monthStart() {
@@ -79,16 +80,66 @@ async function saveUsage(userId, token, count) {
   return text ? JSON.parse(text) : [];
 }
 
+async function stripeRequest(pathname, options = {}) {
+  if (!STRIPE_SECRET_KEY) throw new Error("Stripe is not configured on the server yet.");
+  const headers = {
+    Authorization: `Bearer ${STRIPE_SECRET_KEY}`,
+    ...(options.headers || {})
+  };
+  return fetch(`https://api.stripe.com${pathname}`, { ...options, headers });
+}
+
+async function getStoredSubscription(userId, token) {
+  const qs = `/rest/v1/subscriptions?select=id,stripe_customer_id,stripe_subscription_id,status,plan,current_period_end&user_id=eq.${encodeURIComponent(userId)}&limit=1`;
+  const r = await supabaseRequest(qs, { headers: { Authorization: `Bearer ${token}` } });
+  const text = await r.text();
+  if (!r.ok) throw new Error(`Could not read subscription: ${text}`);
+  const rows = text ? JSON.parse(text) : [];
+  return rows[0] || null;
+}
+
+async function getProStatus(userId, token) {
+  if (!STRIPE_SECRET_KEY) return { pro: false };
+
+  const stored = await getStoredSubscription(userId, token);
+  if (!stored?.stripe_subscription_id) return { pro: false };
+
+  const r = await stripeRequest(`/v1/subscriptions/${encodeURIComponent(stored.stripe_subscription_id)}`);
+  const data = await r.json();
+  if (!r.ok) return { pro: false };
+
+  const pro = data.status === "active" || data.status === "trialing";
+  return {
+    pro,
+    status: data.status || stored.status || null,
+    plan: pro ? "pro" : (stored.plan || null),
+    current_period_end: data.current_period_end
+      ? new Date(data.current_period_end * 1000).toISOString()
+      : (stored.current_period_end || null)
+  };
+}
+
 app.get("/api/config", (req, res) => {
-  res.json({ supabaseUrl: SUPABASE_URL, supabasePublishableKey: SUPABASE_PUBLISHABLE_KEY });
+  res.json({
+    supabaseUrl: SUPABASE_URL,
+    supabasePublishableKey: SUPABASE_PUBLISHABLE_KEY
+  });
 });
 
 app.get("/api/usage", async (req, res) => {
   try {
     const auth = await requireUser(req, res);
     if (!auth) return;
+
     const row = await getUsage(auth.user.id, auth.token);
-    res.json({ count: row?.analysis_count || 0, limit: 10 });
+    const subscription = await getProStatus(auth.user.id, auth.token);
+    const count = row?.analysis_count || 0;
+
+    if (subscription.pro) {
+      return res.json({ count, limit: null, pro: true, plan: "pro" });
+    }
+
+    res.json({ count, limit: 10, pro: false, plan: "free" });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
@@ -123,18 +174,17 @@ app.post("/api/create-checkout-session", async (req, res) => {
     params.set("mode", "subscription");
     params.set("line_items[0][price]", STRIPE_PRO_PRICE_ID);
     params.set("line_items[0][quantity]", "1");
-    params.set("success_url", `${APP_URL}/?checkout=success`);
+    params.set("success_url", `${APP_URL}/?checkout=success&session_id={CHECKOUT_SESSION_ID}`);
     params.set("cancel_url", `${APP_URL}/?checkout=cancelled`);
     params.set("client_reference_id", auth.user.id);
     params.set("customer_email", auth.user.email || "");
     params.set("metadata[user_id]", auth.user.id);
+    params.set("subscription_data[metadata][user_id]", auth.user.id);
+    params.set("subscription_data[metadata][plan]", "pro");
 
-    const r = await fetch("https://api.stripe.com/v1/checkout/sessions", {
+    const r = await stripeRequest("/v1/checkout/sessions", {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${STRIPE_SECRET_KEY}`,
-        "Content-Type": "application/x-www-form-urlencoded"
-      },
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: params.toString()
     });
 
@@ -147,6 +197,62 @@ app.post("/api/create-checkout-session", async (req, res) => {
   }
 });
 
+app.post("/api/sync-subscription", async (req, res) => {
+  try {
+    const auth = await requireUser(req, res);
+    if (!auth) return;
+
+    const sessionId = String(req.body?.session_id || "").trim();
+    if (!sessionId) return res.status(400).json({ error: "Missing checkout session." });
+
+    const sessionR = await stripeRequest(
+      `/v1/checkout/sessions/${encodeURIComponent(sessionId)}?expand[]=subscription&expand[]=customer`
+    );
+    const session = await sessionR.json();
+    if (!sessionR.ok) return res.status(400).json({ error: session?.error?.message || "Could not verify checkout session." });
+
+    const metadataUserId = session?.metadata?.user_id || session?.client_reference_id;
+    if (metadataUserId !== auth.user.id) {
+      return res.status(403).json({ error: "Checkout session does not belong to this account." });
+    }
+    if (session.status !== "complete") {
+      return res.status(400).json({ error: "Checkout is not complete yet." });
+    }
+
+    const sub = typeof session.subscription === "object" ? session.subscription : null;
+    if (!sub?.id) return res.status(400).json({ error: "No subscription was created." });
+
+    const existing = await getStoredSubscription(auth.user.id, auth.token);
+    if (!existing) {
+      const payload = {
+        user_id: auth.user.id,
+        stripe_customer_id: typeof session.customer === "object" ? session.customer.id : session.customer,
+        stripe_subscription_id: sub.id,
+        status: sub.status || "active",
+        plan: "pro",
+        current_period_end: sub.current_period_end ? new Date(sub.current_period_end * 1000).toISOString() : null,
+        updated_at: new Date().toISOString()
+      };
+
+      const insertR = await supabaseRequest("/rest/v1/subscriptions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${auth.token}`,
+          Prefer: "return=minimal"
+        },
+        body: JSON.stringify(payload)
+      });
+      const insertText = await insertR.text();
+      if (!insertR.ok) throw new Error(`Could not save subscription: ${insertText}`);
+    }
+
+    const status = await getProStatus(auth.user.id, auth.token);
+    res.json({ success: true, ...status });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.post("/api/analyze", async (req, res) => {
   try {
     const auth = await requireUser(req, res);
@@ -154,7 +260,9 @@ app.post("/api/analyze", async (req, res) => {
 
     const usage = await getUsage(auth.user.id, auth.token);
     const count = usage?.analysis_count || 0;
-    if (count >= 10) {
+    const subscription = await getProStatus(auth.user.id, auth.token);
+
+    if (!subscription.pro && count >= 10) {
       return res.status(429).json({
         error: "FREE_LIMIT_REACHED",
         message: "You have used all 10 free analyses this month. Upgrade to PRO for unlimited analysis."
@@ -180,9 +288,7 @@ Be accurate. Do not invent facts. If no deadline is stated, say "Not specified".
 
     const content = [];
     if (inputText) content.push({ type: "text", text: inputText });
-    if (imageData) {
-      content.push({ type: "image_url", image_url: { url: imageData } });
-    }
+    if (imageData) content.push({ type: "image_url", image_url: { url: imageData } });
 
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
@@ -227,7 +333,15 @@ Be accurate. Do not invent facts. If no deadline is stated, say "Not specified".
     const historyText = await historyR.text();
     if (!historyR.ok) throw new Error(`Could not save history: ${historyText}`);
 
-    res.json({ result, usage: { count: newCount, limit: 10 } });
+    res.json({
+      result,
+      usage: {
+        count: newCount,
+        limit: subscription.pro ? null : 10,
+        pro: subscription.pro,
+        plan: subscription.pro ? "pro" : "free"
+      }
+    });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
