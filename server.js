@@ -400,4 +400,14 @@ Be accurate. Do not invent facts. If no deadline is stated, say "Not specified".
   }
 });
 
+app.get("/api/health", (req, res) => {
+  res.json({ ok: true, service: "work-panic", api: true });
+});
+
+// Never return an HTML page for an unknown /api route. This keeps the client
+// from trying to parse a platform HTML error page as JSON.
+app.use("/api", (req, res) => {
+  res.status(404).json({ error: "API_ROUTE_NOT_FOUND", path: req.path });
+});
+
 app.listen(PORT, () => console.log(`WORK PANIC listening on ${PORT}`));
