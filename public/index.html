@@ -222,6 +222,22 @@ async function refreshUsage(){
   const t = await token();
   if(!t) return;
 
+  // Reconcile the current LIVE Stripe subscription before reading entitlement.
+  try{
+    const sr = await fetch("/api/sync-latest-subscription", {
+      method:"POST",
+      headers:{Authorization:"Bearer " + t}
+    });
+    const sd = await sr.json().catch(()=>({}));
+    if(sr.ok && sd.pro){
+      usage.textContent = "PRO: Unlimited";
+      upgradeTop.classList.add("hidden");
+      return;
+    }
+  }catch(e){
+    console.warn("Stripe entitlement sync skipped", e);
+  }
+
   const r = await fetch("/api/usage", {
     headers:{Authorization:"Bearer " + t}
   });
@@ -382,9 +398,12 @@ async function syncCheckout(){
       usage.textContent = "PRO: Unlimited";
       upgradeTop.classList.add("hidden");
       msg.innerHTML = '<div class="notice">PRO is now active. Unlimited analysis is enabled.</div>';
+    }else{
+      msg.innerHTML = `<div class="error">PRO activation is still pending. ${escapeHtml(d.error || d.message || "Please refresh once the payment is complete.")}</div>`;
     }
   }catch(e){
     console.error(e);
+    msg.innerHTML = `<div class="error">PRO activation error: ${escapeHtml(e.message || "Unknown error")}</div>`;
   }
   history.replaceState({}, document.title, location.pathname);
 }
