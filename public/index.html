@@ -33,7 +33,7 @@ button{border:0;border-radius:10px;padding:11px 16px;cursor:pointer;font-weight:
 <header>
   <div class="logo">WORK PANIC</div>
   <div class="row">
-    <span id="usage" class="badge">FREE: 0 / 10</span>
+    <span id="usage" class="badge hidden">FREE: 0 / 10</span>
     <button id="upgradeTop" class="secondary hidden">Upgrade to PRO</button>
     <button id="historyBtn" class="secondary hidden">History</button>
     <button id="logoutBtn" class="danger hidden">Logout</button>
@@ -41,12 +41,13 @@ button{border:0;border-radius:10px;padding:11px 16px;cursor:pointer;font-weight:
 </header>
 
 <div id="authCard" class="card">
-  <h2>Sign in</h2>
+  <h2 id="authTitle">Sign in</h2>
   <input id="email" type="email" placeholder="Email">
   <input id="password" type="password" placeholder="Password">
   <div class="row">
     <button id="loginBtn" class="primary">Login</button>
     <button id="signupBtn" class="secondary">Create account</button>
+    <button id="backBtn" class="secondary hidden">Back to sign in</button>
   </div>
   <p id="authMsg" class="small"></p>
 </div>
@@ -109,7 +110,10 @@ const email = $("email");
 const password = $("password");
 const loginBtn = $("loginBtn");
 const signupBtn = $("signupBtn");
+const backBtn = $("backBtn");
+const authTitle = $("authTitle");
 const authMsg = $("authMsg");
+let authMode = "login";
 const inputText = $("inputText");
 const imageInput = $("imageInput");
 const analyzeBtn = $("analyzeBtn");
@@ -144,7 +148,8 @@ async function init(){
 
 function bind(){
   loginBtn.onclick = login;
-  signupBtn.onclick = signup;
+  signupBtn.onclick = () => authMode === "login" ? showSignup() : signup();
+  backBtn.onclick = showLogin;
   logoutBtn.onclick = logout;
   analyzeBtn.onclick = analyze;
   historyBtn.onclick = loadHistory;
@@ -163,12 +168,31 @@ async function setSession(session){
   appCard.classList.toggle("hidden", !currentUser);
   logoutBtn.classList.toggle("hidden", !currentUser);
   historyBtn.classList.toggle("hidden", !currentUser);
+  usage.classList.toggle("hidden", !currentUser);
   upgradeTop.classList.toggle("hidden", !currentUser);
 
   if(currentUser){
     await refreshUsage();
     await syncCheckout();
   }
+}
+
+function showSignup(){
+  authMode = "signup";
+  authTitle.textContent = "Create account";
+  loginBtn.classList.add("hidden");
+  signupBtn.textContent = "Create account";
+  backBtn.classList.remove("hidden");
+  authMsg.textContent = "";
+}
+
+function showLogin(){
+  authMode = "login";
+  authTitle.textContent = "Sign in";
+  loginBtn.classList.remove("hidden");
+  signupBtn.textContent = "Create account";
+  backBtn.classList.add("hidden");
+  authMsg.textContent = "";
 }
 
 async function login(){
@@ -195,7 +219,11 @@ async function signup(){
   if(error){
     authMsg.textContent = error.message;
   }else{
-    authMsg.textContent = "Check your email to confirm your account.";
+    if(data?.session){
+      authMsg.textContent = "Account created. You are now signed in.";
+    }else{
+      authMsg.textContent = "Account created. Please check your email to confirm your account.";
+    }
   }
 }
 
